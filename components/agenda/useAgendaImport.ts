@@ -8,6 +8,7 @@ import type { GeneratedTrip, ResolvedEvent, UnmatchedEvent } from "@/lib/tripGen
 import {
   loadTrips, saveTrips, loadRate, loadHomeAddress,
   loadClientDirectory, saveClientDirectory, loadSettings, updateSettings, DEFAULT_RATE,
+  loadCalendarUrl, saveCalendarUrl,
 } from "@/lib/storage";
 import { getDrivingDistanceKm } from "@/lib/osrm";
 import type { CalendarEvent, ClientEntry, Location } from "@/lib/types";
@@ -21,6 +22,10 @@ export function useAgendaImport() {
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
+  const [calendarUrl, setCalendarUrl] = useState("");
+  const [rememberUrl, setRememberUrl] = useState(true);
+  const [hasSavedUrl, setHasSavedUrl] = useState(false);
+  const [fetchingUrl, setFetchingUrl] = useState(false);
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [range, setRange] = useState(getWeekRange());
   const [directory, setDirectory] = useState<ClientEntry[]>([]);
@@ -43,6 +48,9 @@ export function useAgendaImport() {
 
   useEffect(() => {
     setName(loadSettings().userName);
+    const savedUrl = loadCalendarUrl();
+    setCalendarUrl(savedUrl);
+    setHasSavedUrl(!!savedUrl);
     setDirectory(loadClientDirectory());
     setHomeAddress(loadHomeAddress());
     setRate(loadRate());
@@ -54,20 +62,54 @@ export function useAgendaImport() {
   }
 
   // Step 1: file upload
+  function processIcs(text: string) {
+    const events = parseIcs(text);
+    if (events.length === 0) {
+      setParseError("Geen afspraken gevonden in deze agenda.");
+      return false;
+    }
+    setParseError(null);
+    setAllEvents(events);
+    setStep(2);
+    return true;
+  }
+
   function handleFileUpload(file: File) {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const events = parseIcs(text);
-      if (events.length === 0) {
-        setParseError("Geen afspraken gevonden. Is dit een geldig .ics bestand?");
+    reader.onload = (e) => processIcs(e.target?.result as string);
+    reader.readAsText(file, "utf-8");
+  }
+
+  // Agenda ophalen via de server: Outlook en Google staan ophalen vanuit de browser niet toe (CORS)
+  async function handleUrlImport() {
+    setParseError(null);
+    setFetchingUrl(true);
+    try {
+      const res = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: calendarUrl }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setParseError(body?.error ?? "De agenda kon niet worden opgehaald.");
         return;
       }
-      setParseError(null);
-      setAllEvents(events);
-      setStep(2);
-    };
-    reader.readAsText(file, "utf-8");
+      if (processIcs(await res.text())) {
+        saveCalendarUrl(rememberUrl ? calendarUrl.trim() : null);
+        setHasSavedUrl(rememberUrl);
+      }
+    } catch {
+      setParseError("Geen verbinding. Controleer je internet en probeer het opnieuw.");
+    } finally {
+      setFetchingUrl(false);
+    }
+  }
+
+  function forgetCalendarUrl() {
+    saveCalendarUrl(null);
+    setHasSavedUrl(false);
+    setCalendarUrl("");
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -195,6 +237,14 @@ export function useAgendaImport() {
   const missingKmCount = generatedTrips.filter((t) => t.enabled && t.distanceKm <= 0).length;
 
   return {
+    calendarUrl,
+    setCalendarUrl,
+    rememberUrl,
+    setRememberUrl,
+    hasSavedUrl,
+    fetchingUrl,
+    handleUrlImport,
+    forgetCalendarUrl,
     step,
     setStep,
     name,

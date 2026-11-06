@@ -89,3 +89,16 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   saveSettings(next);
   return next;
 }
+
+const CALENDAR_URL_KEY = "kilometer_calendar_url";
+
+/** Agenda-link die de gebruiker liet onthouden. Geeft leestoegang tot de agenda: alleen lokaal bewaard. */
+export function loadCalendarUrl(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(CALENDAR_URL_KEY) ?? "";
+}
+
+export function saveCalendarUrl(url: string | null): void {
+  if (url) localStorage.setItem(CALENDAR_URL_KEY, url);
+  else localStorage.removeItem(CALENDAR_URL_KEY);
+}

@@ -7,6 +7,7 @@ export const BACKUP_KEYS = [
   "kilometer_home_address",
   "kilometer_client_directory",
   "kilometer_settings",
+  "kilometer_calendar_url",
 ] as const;
 
 const APP_ID = "kilometer-declaraties";

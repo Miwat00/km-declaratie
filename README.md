@@ -6,7 +6,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 
 **[Probeer de live demo →](https://km-declaratie.vercel.app)**
 
-**Privacy:** alles staat lokaal in je browser (localStorage). Er is geen account, geen server en geen tracking.
+**Privacy:** alles staat lokaal in je browser (localStorage). Er is geen account, geen database en geen tracking.
 
 ![Overzicht met routekaart, snelkeuze en ritten van november](docs/screenshots/overzicht.png)
 
@@ -21,7 +21,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 - **Rit toevoegen** met adres-autocomplete, routekaart en automatische afstand (heen en terug in één keer). De afstand kun je aanpassen (omleiding) of zelf invullen als de routeservice niet bereikbaar is
 - **Toegankelijk**: adressen kiezen met pijltjestoetsen en Enter, gekoppelde labels, en vensters die de focus vasthouden
 - **Snelknoppen** voor je thuis- en kantooradres
-- **Agenda-import** vanuit een `.ics`-export (Outlook, Google Calendar):
+- **Agenda-import** via een geplakte agenda-link (Outlook, Google Agenda, iCloud; met één klik opnieuw op te halen) of een `.ics`-bestand:
   - herkent terugkerende afspraken, verplaatste en geannuleerde afspraken
   - koppelt afspraken aan klanten via zoekwoorden, of aan je kantoor via "kantoor"/"office" in de titel
   - bouwt per dag een ritketen thuis → afspraak → afspraak → thuis
@@ -52,10 +52,18 @@ Open daarna <http://localhost:3000>. Bij de eerste keer vraagt de app om je naam
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript-controle |
 
-## Agenda exporteren
+## Je agenda koppelen
+
+**Met een link (aanbevolen):** plak de ICS-link van een gepubliceerde agenda. De app kan die onthouden, zodat je je afspraken daarna met één klik ophaalt.
+
+- **Outlook (web / nieuwe Outlook):** Instellingen → Agenda → Gedeelde agenda's → Een agenda publiceren → kies *Kan alle details weergeven* → Publiceren → kopieer de ICS-link. Bij werkaccounts kan je organisatie dit hebben uitgezet.
+- **Google Agenda:** Instellingen → je agenda → Agenda integreren → *Geheim adres in iCal-indeling*
+- **iCloud:** deel de agenda als openbare agenda en kopieer de `webcal://`-link
+
+**Met een bestand:**
 
 - **Outlook (Windows):** Bestand → Agenda opslaan → kies het datumbereik → `.ics`
-- **Google Calendar:** Instellingen → Importeren en exporteren → Exporteren
+- **Google Agenda:** Instellingen → Importeren en exporteren → Exporteren
 
 ## Gebruikte diensten
 
@@ -67,9 +75,10 @@ Zonder internet kun je ritten bekijken, bewerken en exporteren. Nieuwe routes be
 
 ## Privacy en veiligheid
 
-- **Geen server, geen database.** De app is een statische site. Ritten, adressen en instellingen staan alleen in de browser van wie de app gebruikt. Bezoekers van de demo zien dus nooit elkaars gegevens, en de beheerder ziet ze ook niet.
-- **Wat er naar buiten gaat:** adressen die je intypt gaan naar Nominatim (adres zoeken), coördinaten naar OSRM (afstand berekenen) en kaartuitsneden worden bij OpenStreetMap opgehaald. Verder niets.
-- **Beveiligingsheaders:** een Content Security Policy staat alleen verbindingen met de app zelf en die drie diensten toe, en de app kan niet in een frame van een andere site worden geladen.
+- **Geen database.** Ritten, adressen en instellingen staan alleen in de browser van wie de app gebruikt. Bezoekers van de demo zien dus nooit elkaars gegevens, en de beheerder ziet ze ook niet.
+- **Wat er naar buiten gaat:** adressen die je intypt gaan naar Nominatim (adres zoeken), coördinaten naar OSRM (afstand berekenen) en kaartuitsneden worden bij OpenStreetMap opgehaald.
+- **Agenda-link:** Outlook en Google staan niet toe dat een browser hun agendabestanden rechtstreeks ophaalt (CORS). Daarom haalt één serverfunctie (`/api/calendar`) de agenda op en geeft hem direct terug. De link gaat mee in de request body (niet in de URL, dus niet in toegangslogs), wordt op de server niet opgeslagen of gelogd, en de functie haalt alleen iets op bij Outlook, Google en iCloud, ook bij doorverwijzingen. Zo kan hij niet misbruikt worden als open proxy. Een onthouden link staat alleen in je eigen browser. Let op: met zo'n link kan iedereen je agenda lezen, dus deel hem niet.
+- **Beveiligingsheaders:** een Content Security Policy staat alleen verbindingen met de app zelf en de drie OpenStreetMap-diensten toe, en de app kan niet in een frame van een andere site worden geladen.
 - **Gedeeld apparaat?** Iedereen die die browser gebruikt, kan je ritten zien. Gebruik dan een eigen browserprofiel. "Leeg maken" wist alleen ritten; wil je alles weg (ook naam en adressen), wis dan de sitegegevens in je browserinstellingen.
 
 Screenshots maken met demodata: `npm run build && npx next start -p 3001`, en in een tweede terminal `node scripts/screenshots.mjs`.
@@ -80,6 +89,7 @@ Screenshots maken met demodata: `npm run build && npx next start -p 3001`, en in
 app/                  pagina's (overzicht en agenda-import)
 components/           UI-componenten
 components/agenda/    stappen van de agenda-import + useAgendaImport (state en acties)
+app/api/calendar/     serverfunctie die een agenda-link ophaalt (CORS)
 lib/                  logica zonder UI: .ics-parser, ritten genereren, export, backup, opslag
 tests/                unit tests (Vitest)
 tests/e2e/            end-to-end tests (Playwright); OSM/OSRM worden daarin nagebootst

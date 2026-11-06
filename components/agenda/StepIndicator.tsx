@@ -1,11 +1,11 @@
 import type { Step } from "./useAgendaImport";
 
-const LABELS = ["Uploaden", "Periode", "Koppelen", "Controleren"];
+const LABELS = ["Agenda ophalen", "Week controleren"];
 
 export default function StepIndicator({ step }: { step: Step }) {
   return (
     <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
-      {([1, 2, 3, 4] as const).map((s, i) => (
+      {([1, 2] as const).map((s, i) => (
         <div key={s} className="flex items-center gap-1 flex-shrink-0">
           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
             step > s ? "bg-green-500 text-white" : step === s ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"
@@ -19,7 +19,7 @@ export default function StepIndicator({ step }: { step: Step }) {
           <span className={`text-xs hidden sm:inline ${step === s ? "text-gray-900 font-medium" : "text-gray-500"}`}>
             {LABELS[i]}
           </span>
-          {i < 3 && <div className="w-4 h-px bg-gray-200 flex-shrink-0" />}
+          {i < LABELS.length - 1 && <div className="w-4 h-px bg-gray-200 flex-shrink-0" />}
         </div>
       ))}
     </div>

@@ -5,16 +5,14 @@ import ClientDirectoryEditor from "@/components/ClientDirectoryEditor";
 import { useAgendaImport } from "@/components/agenda/useAgendaImport";
 import StepIndicator from "@/components/agenda/StepIndicator";
 import UploadStep from "@/components/agenda/UploadStep";
-import PeriodStep from "@/components/agenda/PeriodStep";
-import MatchStep from "@/components/agenda/MatchStep";
-import PreviewStep from "@/components/agenda/PreviewStep";
+import WeekStep from "@/components/agenda/WeekStep";
 
 export default function AgendaPage() {
   const imp = useAgendaImport();
   const { step, showDirectory, setShowDirectory, directory, handleDirectoryChange } = imp;
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-4 sm:py-8">
+    <main className="max-w-5xl mx-auto px-4 py-4 sm:py-8">
       {/* Header */}
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-1">
@@ -61,9 +59,7 @@ export default function AgendaPage() {
       <StepIndicator step={step} />
 
       {step === 1 && <UploadStep imp={imp} />}
-      {step === 2 && <PeriodStep imp={imp} />}
-      {step === 3 && <MatchStep imp={imp} />}
-      {step === 4 && <PreviewStep imp={imp} />}
+      {step === 2 && <WeekStep imp={imp} />}
     </main>
   );
 }

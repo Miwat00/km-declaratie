@@ -35,3 +35,19 @@ test("agenda-import", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Agenda importeren" })).toBeVisible();
   await expectNoSeriousViolations(page);
 });
+
+test("weekweergave van de agenda-import", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+  await seed(page, DEFAULT_SEED, "/agenda");
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0",
+    "BEGIN:VEVENT", "UID:a", "SUMMARY:Kantoordag", "DTSTART:20261102T080000Z", "DTEND:20261102T160000Z", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:b", "SUMMARY:Lunch", "DTSTART:20261103T110000Z", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:c", "SUMMARY:Sync", "DTSTART:20261104T080000Z", "LOCATION:Teams", "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  await page.locator("input[type=file]").setInputFiles({ name: "a.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
+  await expect(page.getByRole("button", { name: "Vorige week" })).toBeVisible();
+  await expect(page.getByText("berekenen")).toHaveCount(0);
+  await expectNoSeriousViolations(page);
+});

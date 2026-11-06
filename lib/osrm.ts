@@ -24,11 +24,12 @@ export async function getRouteWithGeometry(
 
   const route = data.routes[0];
   const distanceKm = Math.round((route.distance / 1000) * 10) / 10;
+  const durationMin = Math.round((route.duration ?? 0) / 60);
 
   // GeoJSON coordinates are [lon, lat] — convert to [lat, lon] for Leaflet
   const coordinates: [number, number][] = route.geometry.coordinates.map(
     ([lon, lat]: [number, number]) => [lat, lon]
   );
 
-  return { distanceKm, coordinates };
+  return { distanceKm, durationMin, coordinates };
 }

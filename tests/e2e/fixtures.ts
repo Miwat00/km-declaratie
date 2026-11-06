@@ -57,7 +57,7 @@ async function mockMapServices(page: Page): Promise<MapServices> {
     return route.fulfill({
       json: {
         code: "Ok",
-        routes: [{ distance: km * 1000, geometry: { type: "LineString", coordinates: [[lonA, latA], [lonB, latB]] } }],
+        routes: [{ distance: km * 1000, duration: km * 48, geometry: { type: "LineString", coordinates: [[lonA, latA], [lonB, latB]] } }],
       },
     });
   });

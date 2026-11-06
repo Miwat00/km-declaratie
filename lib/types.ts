@@ -24,6 +24,8 @@ export type Trip = {
 
 export type RouteData = {
   distanceKm: number;
+  /** Reistijd in minuten volgens de routeservice */
+  durationMin: number;
   coordinates: [number, number][]; // [lat, lon] pairs for Leaflet
 };
 

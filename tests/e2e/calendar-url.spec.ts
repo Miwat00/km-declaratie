@@ -19,8 +19,7 @@ test("agenda ophalen via een geplakte link en die onthouden", async ({ page }) =
   await page.getByLabel("Agenda-link plakken").fill(LINK);
   await page.getByRole("button", { name: "Afspraken ophalen" }).click();
 
-  await expect(page.getByRole("heading", { name: "Selecteer periode" })).toBeVisible();
-  await expect(page.getByText("1 events gevonden")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Vorige week" })).toBeVisible();
   expect(requests).toEqual([{ url: LINK }]);
 
   // Volgende keer staat de link al klaar

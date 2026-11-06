@@ -20,6 +20,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
   const [results, setResults] = useState<Location[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [noResults, setNoResults] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +61,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setQuery(val);
+    setNoResults(false);
     onChange(null);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -78,6 +80,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
         // Een trager, ouder zoekresultaat mag een nieuwer niet overschrijven
         if (searchId !== searchIdRef.current) return;
         setResults(locs);
+        setNoResults(locs.length === 0);
         setActiveIndex(-1);
         setOpen(locs.length > 0);
       } finally {
@@ -248,6 +251,12 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
           </div>
         )}
       </div>
+
+      {noResults && !value && (
+        <p className="mt-1 text-xs text-orange-700" role="status">
+          Geen adres gevonden. Probeer straat, huisnummer en plaats, of alleen een plaats- of gebouwnaam.
+        </p>
+      )}
 
       <span className="sr-only" aria-live="polite">
         {open && results.length > 0

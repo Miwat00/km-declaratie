@@ -13,7 +13,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 <p>
   <img src="docs/screenshots/mobiel.png" alt="Rittenlijst op mobiel met gedeclareerde ritten" width="260">
   &nbsp;
-  <img src="docs/screenshots/agenda-import.png" alt="Agenda-import: gegenereerde ritten per dag controleren" width="520">
+  <img src="docs/screenshots/agenda-week.png" alt="Agenda-import in een weekweergave: afspraken met reisblokken ervoor en erna, en een afspraak die nog een locatie nodig heeft" width="520">
 </p>
 
 ## Features
@@ -22,10 +22,12 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 - **Toegankelijk**: adressen kiezen met pijltjestoetsen en Enter, gekoppelde labels, en vensters die de focus vasthouden
 - **Snelknoppen** voor je thuis- en kantooradres
 - **Agenda-import** via een geplakte agenda-link (Outlook, Google Agenda, iCloud; met één klik opnieuw op te halen) of een `.ics`-bestand:
-  - herkent terugkerende afspraken, verplaatste en geannuleerde afspraken
-  - koppelt afspraken aan klanten via zoekwoorden, of aan je kantoor via "kantoor"/"office" in de titel
-  - bouwt per dag een ritketen thuis → afspraak → afspraak → thuis
-  - zoekt het locatieveld van onbekende afspraken alvast op (Teams/Zoom-links worden overgeslagen)
+  - **weekweergave**: je afspraken als blokken in de tijd, met de ritten ervoor en erna als reisblokken op hun echte reistijd
+  - per dag een ritketen thuis → afspraak → afspraak → thuis; afspraken die nog een locatie nodig hebben zijn oranje
+  - koppelen met één klik (Thuis, Kantoor, recente adressen) en onthouden voor volgende keer; "Geen rit" voor afspraken zonder rit
+  - zelf een reisblok toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
+  - herkent terugkerende, verplaatste, geannuleerde en online afspraken (Teams/Zoom) en zoekt adressen uit het locatieveld op
+  - ritten die al in je overzicht staan worden grijs en niet dubbel toegevoegd
 - **Snelkeuze** voor routes die je vaker rijdt: één tik vult route, doel en klant in
 - **Ritten bewerken**: tik op een rit (mobiel) of op het potlood (desktop)
 - **Per maand declareren**: filter op maand en status, markeer ritten als gedeclareerd zodat je niets dubbel indient
@@ -77,7 +79,7 @@ Zonder internet kun je ritten bekijken, bewerken en exporteren. Nieuwe routes be
 
 - **Geen database.** Ritten, adressen en instellingen staan alleen in de browser van wie de app gebruikt. Bezoekers van de demo zien dus nooit elkaars gegevens, en de beheerder ziet ze ook niet.
 - **Wat er naar buiten gaat:** adressen die je intypt gaan naar Nominatim (adres zoeken), coördinaten naar OSRM (afstand berekenen) en kaartuitsneden worden bij OpenStreetMap opgehaald.
-- **Agenda-link:** Outlook en Google staan niet toe dat een browser hun agendabestanden rechtstreeks ophaalt (CORS). Daarom haalt één serverfunctie (`/api/calendar`) de agenda op en geeft hem direct terug. De link gaat mee in de request body (niet in de URL, dus niet in toegangslogs), wordt op de server niet opgeslagen of gelogd, en de functie haalt alleen iets op bij Outlook, Google en iCloud, ook bij doorverwijzingen. Zo kan hij niet misbruikt worden als open proxy. Een onthouden link staat alleen in je eigen browser. Let op: met zo'n link kan iedereen je agenda lezen, dus deel hem niet.
+- **Agenda-link:** Outlook en Google staan niet toe dat een browser hun agendabestanden rechtstreeks ophaalt (CORS). Daarom haalt één serverfunctie (`/api/calendar`) de agenda op en geeft hem direct terug. De link gaat mee in de request body (niet in de URL, dus niet in toegangslogs), wordt op de server niet opgeslagen of gelogd, en de functie haalt alleen iets op bij Outlook, Google en iCloud, ook bij doorverwijzingen. Zo kan hij niet misbruikt worden als open proxy. Een onthouden link staat alleen in je eigen browser en zit niet in het backupbestand. Let op: met zo'n link kan iedereen je agenda lezen, dus deel hem niet.
 - **Beveiligingsheaders:** een Content Security Policy staat alleen verbindingen met de app zelf en de drie OpenStreetMap-diensten toe, en de app kan niet in een frame van een andere site worden geladen.
 - **Gedeeld apparaat?** Iedereen die die browser gebruikt, kan je ritten zien. Gebruik dan een eigen browserprofiel. "Leeg maken" wist alleen ritten; wil je alles weg (ook naam en adressen), wis dan de sitegegevens in je browserinstellingen.
 

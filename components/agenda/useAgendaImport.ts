@@ -1,24 +1,32 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { parseIcs, filterEventsByRange } from "@/lib/ics";
-import { resolveEvents, buildTrips, generatedTripToTrip, geocodeEventLocation } from "@/lib/tripGenerator";
-import type { GeneratedTrip, ResolvedEvent, UnmatchedEvent } from "@/lib/tripGenerator";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { parseIcs } from "@/lib/ics";
+import { geocodeEventLocation } from "@/lib/tripGenerator";
+import {
+  addDays, countedLegs, eventStatus, legToTrip, mondayOf, planDay, routeKey, weekDays, weekSummary,
+  type EventDecision, type LegOverride, type ManualStop, type PlannedEvent, type RouteInfo, type RouteLookup,
+} from "@/lib/dayPlan";
 import {
   loadTrips, saveTrips, loadRate, loadHomeAddress,
-  loadClientDirectory, saveClientDirectory, loadSettings, updateSettings, DEFAULT_RATE,
+  loadClientDirectory, saveClientDirectory, loadSettings, updateSettings, DEFAULT_RATE, DEFAULT_SETTINGS,
   loadCalendarUrl, saveCalendarUrl,
 } from "@/lib/storage";
-import { getDrivingDistanceKm } from "@/lib/osrm";
-import type { CalendarEvent, ClientEntry, Location } from "@/lib/types";
-import { getWeekRange } from "./helpers";
+import { getRouteWithGeometry } from "@/lib/osrm";
+import { todayLocal } from "@/lib/date";
+import type { CalendarEvent, ClientEntry, Location, Settings, Trip } from "@/lib/types";
 
-export type Step = 1 | 2 | 3 | 4;
+export type Step = 1 | 2;
 
-/** Alle state en acties van de agenda-import-wizard. */
+export type Selection =
+  | { type: "event"; id: string }
+  | { type: "leg"; key: string }
+  | { type: "add"; date: string }
+  | null;
+
+/** Alle state en acties van de agenda-import: agenda ophalen en de week controleren. */
 export function useAgendaImport() {
-  const router = useRouter();
+  // ---------- stap 1: agenda ophalen ----------
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -27,33 +35,42 @@ export function useAgendaImport() {
   const [hasSavedUrl, setHasSavedUrl] = useState(false);
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
-  const [range, setRange] = useState(getWeekRange());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ---------- gegevens uit opslag ----------
   const [directory, setDirectory] = useState<ClientEntry[]>([]);
   const [showDirectory, setShowDirectory] = useState(false);
   const [homeAddress, setHomeAddress] = useState<Location | null>(null);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [rate, setRate] = useState(DEFAULT_RATE);
-  const [resolved, setResolved] = useState<ResolvedEvent[]>([]);
-  const [unmatched, setUnmatched] = useState<UnmatchedEvent[]>([]);
-  const [unmatchedLocations, setUnmatchedLocations] = useState<Record<string, Location | null>>({});
-  const [unmatchedClients, setUnmatchedClients] = useState<Record<string, string>>({});
-  const [unmatchedBillable, setUnmatchedBillable] = useState<Record<string, boolean>>({});
-  const [unmatchedRemember, setUnmatchedRemember] = useState<Record<string, boolean>>({});
-  const [generatedTrips, setGeneratedTrips] = useState<GeneratedTrip[]>([]);
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const [editingTrip, setEditingTrip] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [existingTrips, setExistingTrips] = useState<Trip[]>([]);
+
+  // ---------- stap 2: week ----------
+  const [weekStart, setWeekStart] = useState(() => mondayOf(todayLocal()));
+  const [decisions, setDecisions] = useState<Record<string, EventDecision>>({});
+  const [geocoded, setGeocoded] = useState<Record<string, Location | null>>({});
+  const [routes, setRoutes] = useState<Record<string, RouteInfo | "error">>({});
+  const [manualStops, setManualStops] = useState<ManualStop[]>([]);
+  const [legOverrides, setLegOverrides] = useState<Record<string, LegOverride>>({});
+  const [selection, setSelection] = useState<Selection>(null);
+  const [addedMessage, setAddedMessage] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const pendingRoutes = useRef(new Set<string>());
+  const pendingGeocodes = useRef(new Set<string>());
 
   const effectiveName = name.trim();
 
   useEffect(() => {
+    // localStorage bestaat pas in de browser
     setName(loadSettings().userName);
     const savedUrl = loadCalendarUrl();
     setCalendarUrl(savedUrl);
     setHasSavedUrl(!!savedUrl);
     setDirectory(loadClientDirectory());
     setHomeAddress(loadHomeAddress());
+    setSettings(loadSettings());
     setRate(loadRate());
+    setExistingTrips(loadTrips());
   }, []);
 
   function handleDirectoryChange(entries: ClientEntry[]) {
@@ -61,7 +78,6 @@ export function useAgendaImport() {
     saveClientDirectory(entries);
   }
 
-  // Step 1: file upload
   function processIcs(text: string) {
     const events = parseIcs(text);
     if (events.length === 0) {
@@ -70,6 +86,11 @@ export function useAgendaImport() {
     }
     setParseError(null);
     setAllEvents(events);
+    setDecisions({});
+    setManualStops([]);
+    setLegOverrides({});
+    setSelection(null);
+    setAddedMessage(null);
     setStep(2);
     return true;
   }
@@ -78,6 +99,12 @@ export function useAgendaImport() {
     const reader = new FileReader();
     reader.onload = (e) => processIcs(e.target?.result as string);
     reader.readAsText(file, "utf-8");
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
   }
 
   // Agenda ophalen via de server: Outlook en Google staan ophalen vanuit de browser niet toe (CORS)
@@ -112,131 +139,148 @@ export function useAgendaImport() {
     setCalendarUrl("");
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
+  // ---------- afgeleide weekplanning ----------
+  const allDays = useMemo(() => weekDays(weekStart), [weekStart]);
+  const weekEvents = useMemo(
+    () => allEvents.filter((e) => e.date >= allDays[0] && e.date <= allDays[6]),
+    [allEvents, allDays]
+  );
+  // Weekend alleen tonen als er dan afspraken of tussenstops zijn
+  const days = useMemo(() => {
+    const busy = new Set([...weekEvents.map((e) => e.date), ...manualStops.map((m) => m.date)]);
+    return busy.has(allDays[5]) || busy.has(allDays[6]) ? allDays : allDays.slice(0, 5);
+  }, [allDays, weekEvents, manualStops]);
+
+  const planned: PlannedEvent[] = useMemo(
+    () =>
+      weekEvents.map((event) => ({
+        event,
+        status: eventStatus(event, decisions[event.id], directory, settings, event.location ? geocoded[event.location] : undefined),
+      })),
+    [weekEvents, decisions, directory, settings, geocoded]
+  );
+
+  const legs = useMemo(() => {
+    if (!homeAddress) return [];
+    const lookup: RouteLookup = (a, b) => routes[routeKey(a, b)] ?? "loading";
+    return days.flatMap((d) => planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips));
+  }, [days, planned, manualStops, homeAddress, routes, legOverrides, existingTrips]);
+
+  const summary = useMemo(() => weekSummary(legs), [legs]);
+  const todoCount = planned.filter((p) => p.status.kind === "todo").length;
+
+  // Routes ophalen voor ritten in deze week (één voor één, de OSRM-demoserver is gratis)
+  useEffect(() => {
+    const missing = legs.filter((l) => l.routeStatus === "loading" && !pendingRoutes.current.has(routeKey(l.from, l.to)));
+    if (missing.length === 0) return;
+    (async () => {
+      for (const leg of missing) {
+        const key = routeKey(leg.from, leg.to);
+        if (pendingRoutes.current.has(key)) continue;
+        pendingRoutes.current.add(key);
+        try {
+          const r = await getRouteWithGeometry(leg.from, leg.to);
+          setRoutes((prev) => ({ ...prev, [key]: { km: r.distanceKm, min: r.durationMin } }));
+        } catch {
+          setRoutes((prev) => ({ ...prev, [key]: "error" }));
+        }
+      }
+    })();
+  }, [legs]);
+
+  // Locatievelden uit de agenda opzoeken voor afspraken die nog niet gekoppeld zijn
+  useEffect(() => {
+    const queries = planned
+      .filter((p) => p.status.kind === "todo" && p.event.location)
+      .map((p) => p.event.location!)
+      .filter((q) => !(q in geocoded) && !pendingGeocodes.current.has(q));
+    if (queries.length === 0) return;
+    (async () => {
+      for (const q of new Set(queries)) {
+        pendingGeocodes.current.add(q);
+        const loc = await geocodeEventLocation(q);
+        setGeocoded((prev) => ({ ...prev, [q]: loc }));
+      }
+    })();
+  }, [planned, geocoded]);
+
+  // ---------- acties ----------
+  function goToWeek(monday: string) {
+    setWeekStart(monday);
+    setSelection(null);
+    setAddedMessage(null);
+  }
+  const prevWeek = () => goToWeek(addDays(weekStart, -7));
+  const nextWeek = () => goToWeek(addDays(weekStart, 7));
+  const thisWeek = () => goToWeek(mondayOf(todayLocal()));
+
+  /** Locatie kiezen of "geen rit" voor een afspraak. Met `remember` geldt het voor alle afspraken met deze titel. */
+  function decideEvent(event: CalendarEvent, decision: EventDecision | null, remember = false) {
+    setDecisions((prev) => {
+      const next = { ...prev };
+      if (decision) next[event.id] = decision;
+      else delete next[event.id];
+      return next;
+    });
+    if (decision?.kind === "link" && remember) {
+      const keyword = event.title.trim();
+      const entry: ClientEntry = { keyword, location: decision.location, client: decision.client, billable: decision.billable };
+      handleDirectoryChange([...directory.filter((d) => d.keyword.toLowerCase() !== keyword.toLowerCase()), entry]);
+    }
   }
 
-  // Step 2: select range → go to step 3
-  const eventsInRange = filterEventsByRange(allEvents, range.from, range.to);
+  function setLegOverride(key: string, patch: LegOverride) {
+    setLegOverrides((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  }
 
-  // Step 2 → 3: events koppelen aan locaties (routes worden pas in stap 3 → 4 berekend)
-  async function handleGenerateTrips() {
-    if (!homeAddress) {
-      setGenerateError("Stel eerst je thuisadres in via Instellingen op de hoofdpagina.");
+  function addManualStop(stop: Omit<ManualStop, "id">) {
+    setManualStops((prev) => [...prev, { ...stop, id: crypto.randomUUID() }]);
+    setSelection(null);
+  }
+
+  function removeManualStop(id: string) {
+    setManualStops((prev) => prev.filter((m) => m.id !== id));
+    setSelection(null);
+  }
+
+  function handleConfirm() {
+    setConfirmError(null);
+    if (!effectiveName) {
+      setConfirmError("Vul eerst je naam in (stap 1).");
       return;
     }
-    setGenerateError(null);
-    const result = resolveEvents(eventsInRange, directory, loadSettings());
-    setResolved(result.resolved);
-
-    const locs: Record<string, Location | null> = {};
-    const clients: Record<string, string> = {};
-    const bill: Record<string, boolean> = {};
-    const rem: Record<string, boolean> = {};
-    for (const u of result.unmatched) {
-      locs[u.event.id] = null;
-      clients[u.event.id] = u.event.title;
-      bill[u.event.id] = true;
-      rem[u.event.id] = false;
-    }
-    setUnmatched(result.unmatched);
-    setUnmatchedLocations(locs);
-    setUnmatchedClients(clients);
-    setUnmatchedBillable(bill);
-    setUnmatchedRemember(rem);
-    setStep(3);
-
-    // Locatieveld uit de agenda alvast geocoden (de Nominatim-client throttlet naar 1 req/s)
-    for (const u of result.unmatched) {
-      if (!u.event.location) continue;
-      const loc = await geocodeEventLocation(u.event.location);
-      if (loc) setUnmatchedLocations((prev) => (prev[u.event.id] ? prev : { ...prev, [u.event.id]: loc }));
-    }
-  }
-
-  // Step 3 → 4: alle gekoppelde events samen tot één ritketen per dag bouwen
-  async function handleResolveAndPreview() {
-    if (!homeAddress) return;
-    const newEntries: ClientEntry[] = [];
-    const extra: ResolvedEvent[] = [];
-    for (const u of unmatched) {
-      const loc = unmatchedLocations[u.event.id];
-      if (!loc) continue;
-      const client = unmatchedClients[u.event.id] || u.event.title;
-      const billable = unmatchedBillable[u.event.id] ?? true;
-      extra.push({ event: u.event, location: loc, client, billable });
-      if (unmatchedRemember[u.event.id]) {
-        newEntries.push({ keyword: u.event.title, location: loc, client, billable });
-      }
-    }
-    if (newEntries.length > 0) {
-      const updated = [...directory, ...newEntries];
-      setDirectory(updated);
-      saveClientDirectory(updated);
-    }
-
-    setGenerating(true);
-    setGenerateError(null);
-    try {
-      setGeneratedTrips(await buildTrips([...resolved, ...extra], homeAddress));
-      setEditingTrip(null);
-      setStep(4);
-    } catch (err) {
-      setGenerateError(err instanceof Error ? err.message : "Er ging iets mis");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  // Step 4: preview & edit
-  function toggleTrip(id: string) {
-    setGeneratedTrips((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t))
-    );
-  }
-
-  function removeTrip(id: string) {
-    setGeneratedTrips((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  function updateTrip(id: string, patch: Partial<GeneratedTrip>) {
-    setGeneratedTrips((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
-    );
-  }
-
-  async function handleLocationChange(id: string, field: "locationA" | "locationB", loc: Location) {
-    const trip = generatedTrips.find((t) => t.id === id);
-    if (!trip) return;
-    const from = field === "locationA" ? loc : trip.locationA;
-    const to = field === "locationB" ? loc : trip.locationB;
-    updateTrip(id, { [field]: loc, distanceKm: 0 });
-    try {
-      const km = await getDrivingDistanceKm(from, to);
-      updateTrip(id, { distanceKm: km });
-    } catch {
-      // keep 0
-    }
-  }
-
-  // Step 5: confirm
-  function handleConfirm() {
-    const toAdd = generatedTrips
-      .filter((t) => t.enabled)
-      .map((t) => generatedTripToTrip(t, rate, effectiveName));
-
+    const toAdd = countedLegs(legs)
+      .filter((l) => l.km !== null)
+      .map((l) => legToTrip(l, rate, effectiveName));
+    if (toAdd.length === 0) return;
     if (effectiveName !== loadSettings().userName) updateSettings({ userName: effectiveName });
-    const existing = loadTrips();
-    saveTrips([...existing, ...toAdd]);
-    router.push(`/?added=${toAdd.length}`);
+    const updated = [...loadTrips(), ...toAdd];
+    saveTrips(updated);
+    setExistingTrips(updated);
+    setSelection(null);
+    setAddedMessage(`${toAdd.length} ${toAdd.length === 1 ? "rit" : "ritten"} toegevoegd`);
   }
 
-  const enabledCount = generatedTrips.filter((t) => t.enabled).length;
-  const missingKmCount = generatedTrips.filter((t) => t.enabled && t.distanceKm <= 0).length;
+  /** Adressen die je vaker gebruikt, als snelkeuze bij het koppelen. */
+  const recentLocations = useMemo(() => {
+    const seen = new Set<string>();
+    const skip = [homeAddress, settings.office].filter(Boolean).map((l) => l!.shortName);
+    const out: Location[] = [];
+    for (const l of [...directory.map((d) => d.location), ...[...existingTrips].reverse().map((t) => t.locationB)]) {
+      if (seen.has(l.shortName) || skip.includes(l.shortName)) continue;
+      seen.add(l.shortName);
+      out.push(l);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }, [directory, existingTrips, homeAddress, settings.office]);
 
   return {
+    step,
+    setStep,
+    name,
+    setName,
+    parseError,
     calendarUrl,
     setCalendarUrl,
     rememberUrl,
@@ -245,47 +289,37 @@ export function useAgendaImport() {
     fetchingUrl,
     handleUrlImport,
     forgetCalendarUrl,
-    step,
-    setStep,
-    name,
-    setName,
-    parseError,
-    allEvents,
-    range,
-    setRange,
+    fileInputRef,
+    handleFileUpload,
+    handleDrop,
     directory,
     showDirectory,
     setShowDirectory,
-    homeAddress,
-    unmatched,
-    unmatchedLocations,
-    setUnmatchedLocations,
-    unmatchedClients,
-    setUnmatchedClients,
-    unmatchedBillable,
-    setUnmatchedBillable,
-    unmatchedRemember,
-    setUnmatchedRemember,
-    generatedTrips,
-    generating,
-    generateError,
-    editingTrip,
-    setEditingTrip,
-    fileInputRef,
-    effectiveName,
-    eventsInRange,
-    enabledCount,
-    missingKmCount,
     handleDirectoryChange,
-    handleFileUpload,
-    handleDrop,
-    handleGenerateTrips,
-    handleResolveAndPreview,
-    toggleTrip,
-    removeTrip,
-    updateTrip,
-    handleLocationChange,
+    homeAddress,
+    settings,
+    rate,
+    allEvents,
+    weekStart,
+    days,
+    planned,
+    legs,
+    manualStops,
+    summary,
+    todoCount,
+    selection,
+    setSelection,
+    prevWeek,
+    nextWeek,
+    thisWeek,
+    decideEvent,
+    setLegOverride,
+    addManualStop,
+    removeManualStop,
     handleConfirm,
+    addedMessage,
+    confirmError,
+    recentLocations,
   };
 }
 

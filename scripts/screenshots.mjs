@@ -77,24 +77,29 @@ const browser = await chromium.launch();
   await page.context().close();
 }
 
-// 3. Agenda-import: controleerstap
+// 3. Agenda-import: weekweergave met een afspraak die nog gekoppeld moet worden
 {
-  const page = await newPage(browser, { viewport: { width: 1000, height: 900 }, deviceScaleFactor: 2 });
+  const page = await newPage(browser, { viewport: { width: 1200, height: 1000 }, deviceScaleFactor: 2 });
+  await page.clock.setFixedTime(new Date("2026-11-11T10:00:00+01:00"));
   await page.goto(`${BASE}/agenda`);
+  const tz = "DTSTART;TZID=W. Europe Standard Time:";
+  const tzEnd = "DTEND;TZID=W. Europe Standard Time:";
   const ics = [
     "BEGIN:VCALENDAR", "VERSION:2.0",
-    "BEGIN:VEVENT", "UID:a", "SUMMARY:Kantoordag", "DTSTART:20261109T080000Z", "RRULE:FREQ=WEEKLY;BYDAY=MO,TH;COUNT=2", "END:VEVENT",
-    "BEGIN:VEVENT", "UID:b", "SUMMARY:Workshop Rotterdam", "DTSTART;TZID=W. Europe Standard Time:20261110T100000", "END:VEVENT",
-    "BEGIN:VEVENT", "UID:c", "SUMMARY:Weekstart (Teams)", "DTSTART:20261109T070000Z", "LOCATION:Microsoft Teams Meeting", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:a", "SUMMARY:Kantoordag", `${tz}20261109T090000`, `${tzEnd}20261109T170000`, "RRULE:FREQ=WEEKLY;BYDAY=MO,TH;COUNT=2", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:c", "SUMMARY:Weekstart", `${tz}20261110T090000`, `${tzEnd}20261110T093000`, "LOCATION:Microsoft Teams Meeting", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:b", "SUMMARY:Workshop Rotterdam", `${tz}20261110T130000`, `${tzEnd}20261110T160000`, "END:VEVENT",
+    "BEGIN:VEVENT", "UID:d", "SUMMARY:Lunch met Jan", `${tz}20261111T120000`, `${tzEnd}20261111T133000`, "END:VEVENT",
+    "BEGIN:VEVENT", "UID:e", "SUMMARY:Kick-off", `${tz}20261113T100000`, `${tzEnd}20261113T120000`, "LOCATION:Grote Markt 1" + "\\, Haarlem", "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
-  await page.getByLabel("Van").fill("2026-11-09");
-  await page.getByLabel("Tot en met").fill("2026-11-13");
-  await page.getByRole("button", { name: /Verwerk/ }).click();
-  await page.getByRole("button", { name: "Naar preview" }).click();
-  await page.getByRole("heading", { name: "Controleer en corrigeer" }).waitFor({ timeout: 30_000 });
-  await page.screenshot({ path: `${OUT}/agenda-import.png`, fullPage: true });
+  await page.getByRole("button", { name: "Vorige week" }).waitFor();
+  // Wachten tot alle routes berekend zijn
+  await page.getByText("Routes berekenen…").waitFor({ state: "detached", timeout: 60_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^Lunch met Jan/ }).click();
+  await page.screenshot({ path: `${OUT}/agenda-week.png`, fullPage: true });
   await page.context().close();
 }
 

@@ -65,8 +65,8 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
           const swiped = swipedId === trip.id;
           return (
             <div key={trip.id} className="relative overflow-hidden">
-              {/* Rode delete achtergrond */}
-              <div className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center">
+              {/* Rode delete achtergrond: alleen zichtbaar bij vegen, anders piept er een rode rand onder de kaart uit */}
+              <div className={`absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center ${swiped ? "" : "invisible"}`}>
                 <button
                   onClick={() => onDelete(trip.id)}
                   className="flex flex-col items-center gap-1 text-white"

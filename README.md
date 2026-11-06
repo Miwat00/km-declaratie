@@ -1,8 +1,20 @@
 # Kilometer Declaraties
 
+[![CI](https://github.com/Miwat00/km-declaratie/actions/workflows/ci.yml/badge.svg)](https://github.com/Miwat00/km-declaratie/actions/workflows/ci.yml)
+
 Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- en eindpunt in en de app berekent de rijafstand via OpenStreetMap. Je kunt ook een hele week aan ritten genereren uit je Outlook-agenda.
 
+**[Probeer de live demo →](https://km-declaratie.vercel.app)**
+
 **Privacy:** alles staat lokaal in je browser (localStorage). Er is geen account, geen server en geen tracking.
+
+![Overzicht met routekaart, snelkeuze en ritten van november](docs/screenshots/overzicht.png)
+
+<p>
+  <img src="docs/screenshots/mobiel.png" alt="Rittenlijst op mobiel met gedeclareerde ritten" width="260">
+  &nbsp;
+  <img src="docs/screenshots/agenda-import.png" alt="Agenda-import: gegenereerde ritten per dag controleren" width="520">
+</p>
 
 ## Features
 
@@ -52,6 +64,15 @@ Open daarna <http://localhost:3000>. Bij de eerste keer vraagt de app om je naam
 - Kaart: [Leaflet](https://leafletjs.com/) met [OpenStreetMap-tegels](https://operations.osmfoundation.org/policies/tiles/)
 
 Zonder internet kun je ritten bekijken, bewerken en exporteren. Nieuwe routes berekenen en adressen zoeken heeft wel internet nodig.
+
+## Privacy en veiligheid
+
+- **Geen server, geen database.** De app is een statische site. Ritten, adressen en instellingen staan alleen in de browser van wie de app gebruikt. Bezoekers van de demo zien dus nooit elkaars gegevens, en de beheerder ziet ze ook niet.
+- **Wat er naar buiten gaat:** adressen die je intypt gaan naar Nominatim (adres zoeken), coördinaten naar OSRM (afstand berekenen) en kaartuitsneden worden bij OpenStreetMap opgehaald. Verder niets.
+- **Beveiligingsheaders:** een Content Security Policy staat alleen verbindingen met de app zelf en die drie diensten toe, en de app kan niet in een frame van een andere site worden geladen.
+- **Gedeeld apparaat?** Iedereen die die browser gebruikt, kan je ritten zien. Gebruik dan een eigen browserprofiel. "Leeg maken" wist alleen ritten; wil je alles weg (ook naam en adressen), wis dan de sitegegevens in je browserinstellingen.
+
+Screenshots maken met demodata: `npm run build && npx next start -p 3001`, en in een tweede terminal `node scripts/screenshots.mjs`.
 
 ## Projectstructuur
 

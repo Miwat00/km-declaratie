@@ -45,13 +45,13 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
   if (trips.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-8 text-center shadow-sm">
-        <div className="text-gray-400 mb-2">
+        <div className="text-gray-500 mb-2">
           <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
           </svg>
         </div>
         <p className="text-sm text-gray-500">Nog geen ritten toegevoegd</p>
-        <p className="text-xs text-gray-400 mt-1">Vul een rit in via het formulier hierboven</p>
+        <p className="text-xs text-gray-500 mt-1">Vul een rit in via het formulier hierboven</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
           return (
             <div key={trip.id} className="relative overflow-hidden">
               {/* Rode delete achtergrond */}
-              <div className="absolute inset-y-0 right-0 w-20 bg-red-500 flex items-center justify-center">
+              <div className="absolute inset-y-0 right-0 w-20 bg-red-600 flex items-center justify-center">
                 <button
                   onClick={() => onDelete(trip.id)}
                   className="flex flex-col items-center gap-1 text-white"
@@ -80,7 +80,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
 
               {/* Kaart inhoud — verschuift bij swipe */}
               <div
-                className={`relative bg-white px-4 py-3 transition-transform duration-200 cursor-pointer ${trip.declaredAt ? "opacity-70" : ""}`}
+                className={`relative px-4 py-3 transition-transform duration-200 cursor-pointer ${trip.declaredAt ? "bg-gray-50" : "bg-white"}`}
                 style={{ transform: swiped ? "translateX(-80px)" : "translateX(0)" }}
                 onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
                 onTouchEnd={(e) => {
@@ -95,12 +95,12 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                   <p className="text-sm font-semibold text-gray-900 truncate">{trip.purpose}</p>
                   <span className="text-sm font-mono font-bold text-gray-800 whitespace-nowrap flex-shrink-0">
                     {trip.distanceKm.toFixed(1).replace(".", ",")}
-                    <span className="text-xs font-normal text-gray-400 ml-0.5">km</span>
+                    <span className="text-xs font-normal text-gray-500 ml-0.5">km</span>
                   </span>
                 </div>
                 {/* Rij 2: datum · naam · klant · factureerbaar */}
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <span className="text-xs text-gray-400">{formatDate(trip.date)}</span>
+                  <span className="text-xs text-gray-500">{formatDate(trip.date)}</span>
                   <span className="text-xs text-gray-300">·</span>
                   <span className="text-xs text-gray-500">{trip.name}</span>
                   <span className="text-xs text-gray-300">·</span>
@@ -111,7 +111,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                   {trip.declaredAt && <DeclaredBadge date={trip.declaredAt} />}
                 </div>
                 {/* Rij 3: route */}
-                <p className="text-xs text-gray-400 truncate mt-0.5">
+                <p className="text-xs text-gray-500 truncate mt-0.5">
                   {trip.locationA.shortName}
                   <span className="mx-1">→</span>
                   {trip.locationB.shortName}
@@ -139,7 +139,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {trips.map((trip) => (
-              <tr key={trip.id} className={`hover:bg-gray-50 transition-colors ${trip.declaredAt ? "text-gray-400" : ""}`}>
+              <tr key={trip.id} className={`hover:bg-gray-50 transition-colors ${trip.declaredAt ? "text-gray-500" : ""}`}>
                 <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
                   {formatDate(trip.date)}
                   {trip.declaredAt && <div className="mt-0.5"><DeclaredBadge date={trip.declaredAt} /></div>}
@@ -157,7 +157,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                     title={`${trip.locationA.displayName} → ${trip.locationB.displayName}`}
                   >
                     {trip.locationA.shortName}
-                    <span className="mx-1 text-gray-400">→</span>
+                    <span className="mx-1 text-gray-500">→</span>
                     {trip.locationB.shortName}
                   </span>
                 </td>
@@ -170,7 +170,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                       Ja
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
                       Nee
                     </span>
                   )}
@@ -178,7 +178,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                 <td className="px-3 py-3 text-right whitespace-nowrap">
                   <button
                     onClick={() => onEdit(trip)}
-                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded"
+                    className="text-gray-500 hover:text-blue-600 transition-colors p-1 rounded"
                     title="Rit bewerken"
                     aria-label="Rit bewerken"
                   >
@@ -188,7 +188,7 @@ export default function TripTable({ trips, onDelete, onEdit }: Props) {
                   </button>
                   <button
                     onClick={() => onDelete(trip.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+                    className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded"
                     title="Rit verwijderen"
                     aria-label="Rit verwijderen"
                   >

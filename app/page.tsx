@@ -205,7 +205,7 @@ export default function Home() {
           />
         </div>
 
-        <footer className="mt-8 text-center text-xs text-gray-400">
+        <footer className="mt-8 text-center text-xs text-gray-500">
           Afstanden berekend via OpenStreetMap · Data opgeslagen in je browser
         </footer>
 

@@ -228,7 +228,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
           {/* Snelkeuze: veelgereden ritten */}
           {!isEditing && suggestions.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap -mt-1">
-              <span className="text-xs text-gray-400">Snelkeuze:</span>
+              <span className="text-xs text-gray-500">Snelkeuze:</span>
               {suggestions.map((s) => (
                 <button
                   key={s.key}
@@ -278,7 +278,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
           {/* Rij 2: Route */}
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <LocationInput label="Startpunt (adres)" value={locA} onChange={changeLocA} disabled={submitLoading} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
-            <div className="flex-shrink-0 text-gray-400 pb-2 hidden sm:block">
+            <div className="flex-shrink-0 text-gray-500 pb-2 hidden sm:block">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
@@ -305,7 +305,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
                   kmInvalid ? "border-red-400" : "border-gray-300"
                 }`}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">km</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">km</span>
             </div>
             <p id={ids.kmHint} className={`text-xs ${kmInvalid || (routeError && !kmManual) ? "text-orange-600" : "text-gray-500"}`} aria-live="polite">
               {routeLoading && !kmManual ? (
@@ -401,7 +401,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
                   {submitError}
                 </p>
               ) : (
-                <p className="text-xs text-gray-400">Alle velden met * zijn verplicht</p>
+                <p className="text-xs text-gray-500">Alle velden met * zijn verplicht</p>
               )}
               {isEditing && (
                 <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -460,7 +460,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
                     <span className="w-2.5 h-2.5 rounded-full bg-green-600 flex-shrink-0 inline-block" />
                     <span className="truncate">{locA.shortName}</span>
                   </span>
-                  <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                   <span className="flex items-center gap-1 text-red-700 font-medium truncate">
@@ -495,7 +495,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
                   <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   </svg>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-500">
                     Vul start- en eindpunt in<br />om de route te zien
                   </p>
                 </>

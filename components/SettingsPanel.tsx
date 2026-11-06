@@ -68,7 +68,7 @@ export default function SettingsPanel({ onClose }: Props) {
       >
         <div className="flex items-center justify-between">
           <h2 id="settings-title" className="text-base font-semibold text-gray-900">Instellingen</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Sluiten">
+          <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-600 p-1" aria-label="Sluiten">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -81,20 +81,20 @@ export default function SettingsPanel({ onClose }: Props) {
             <input id="settings-name" type="text" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Voornaam Achternaam" className={inputClass} />
           </div>
           <div>
-            <label htmlFor="settings-company" className="block text-sm font-medium text-gray-700 mb-1">Werkgever <span className="text-gray-400 font-normal">(optioneel)</span></label>
+            <label htmlFor="settings-company" className="block text-sm font-medium text-gray-700 mb-1">Werkgever <span className="text-gray-500 font-normal">(optioneel)</span></label>
             <input id="settings-company" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Bedrijfsnaam" className={inputClass} />
           </div>
         </div>
 
         <LocationInput label="Thuisadres" value={home} onChange={setHome} homeAddress={null} />
         <LocationInput label="Kantooradres" value={office} onChange={setOffice} homeAddress={home} />
-        <p className="text-xs text-gray-400 -mt-2">
+        <p className="text-xs text-gray-500 -mt-2">
           Afspraken met &quot;kantoor&quot; of &quot;office&quot; in de titel worden bij agenda-import aan dit adres gekoppeld.
         </p>
 
         <div className="border-t border-gray-100 pt-4">
           <h3 className="text-sm font-medium text-gray-700">Backup</h3>
-          <p className="text-xs text-gray-400 mt-0.5 mb-2">
+          <p className="text-xs text-gray-500 mt-0.5 mb-2">
             Je gegevens staan alleen in deze browser. Download af en toe een backup, of zet je ritten zo over naar een ander apparaat.
           </p>
           <div className="flex gap-2 flex-wrap">

@@ -89,7 +89,7 @@ export default function InstallPrompt() {
 
         <button
           onClick={dismiss}
-          className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 -mt-0.5"
+          className="text-gray-500 hover:text-gray-600 transition-colors flex-shrink-0 -mt-0.5"
           aria-label="Sluiten"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

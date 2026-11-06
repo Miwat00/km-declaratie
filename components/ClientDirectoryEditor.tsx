@@ -72,9 +72,9 @@ export default function ClientDirectoryEditor({ entries, onChange }: Props) {
             <li key={i} className="flex items-center gap-3 px-3 py-2.5 bg-white text-sm">
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-gray-900">{e.keyword}</span>
-                <span className="text-gray-400 mx-1.5">→</span>
+                <span className="text-gray-500 mx-1.5">→</span>
                 <span className="text-gray-600 truncate">{e.location.shortName}</span>
-                <span className="text-gray-400 mx-1.5">·</span>
+                <span className="text-gray-500 mx-1.5">·</span>
                 <span className="text-gray-500">{e.client}</span>
                 {e.billable && (
                   <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Factureerbaar</span>
@@ -153,7 +153,7 @@ export default function ClientDirectoryEditor({ entries, onChange }: Props) {
                   className="px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0"
                 >
                   <div className="text-sm font-medium text-gray-900">{loc.shortName}</div>
-                  <div className="text-xs text-gray-400 truncate">{loc.displayName.split(",").slice(1, 3).join(",")}</div>
+                  <div className="text-xs text-gray-500 truncate">{loc.displayName.split(",").slice(1, 3).join(",")}</div>
                 </li>
               ))}
             </ul>

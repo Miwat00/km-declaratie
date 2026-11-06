@@ -36,6 +36,7 @@ Open daarna <http://localhost:3000>. Bij de eerste keer vraagt de app om je naam
 | `npm run dev` | Ontwikkelserver |
 | `npm run build` | Productiebuild |
 | `npm test` | Unit tests (Vitest) |
+| `npm run e2e` | End-to-end tests (Playwright, desktop + mobiel, met axe-toegankelijkheidscontrole). Eenmalig eerst `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript-controle |
 
@@ -52,9 +53,20 @@ Open daarna <http://localhost:3000>. Bij de eerste keer vraagt de app om je naam
 
 Zonder internet kun je ritten bekijken, bewerken en exporteren. Nieuwe routes berekenen en adressen zoeken heeft wel internet nodig.
 
+## Projectstructuur
+
+```
+app/                  pagina's (overzicht en agenda-import)
+components/           UI-componenten
+components/agenda/    stappen van de agenda-import + useAgendaImport (state en acties)
+lib/                  logica zonder UI: .ics-parser, ritten genereren, export, backup, opslag
+tests/                unit tests (Vitest)
+tests/e2e/            end-to-end tests (Playwright); OSM/OSRM worden daarin nagebootst
+```
+
 ## Tech stack
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS en Vitest.
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Vitest en Playwright.
 
 ## Licentie
 

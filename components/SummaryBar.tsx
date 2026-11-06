@@ -57,7 +57,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
     <>
       <button
         onClick={onClear}
-        className="flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 border border-gray-200 sm:border-0"
+        className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 border border-gray-200 sm:border-0"
         title="Verwijder alle ritten"
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,14 +105,14 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
       <div className="sm:hidden space-y-3">
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">KM</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">KM</p>
             <p className="text-xl font-bold text-gray-900">
               {totalKm.toFixed(1).replace(".", ",")}
-              <span className="text-xs font-normal text-gray-400 ml-0.5">km</span>
+              <span className="text-xs font-normal text-gray-500 ml-0.5">km</span>
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Tarief</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Tarief</p>
             <div className="flex items-center justify-center gap-0.5">
               <span className="text-xs text-gray-500">€</span>
               <input
@@ -129,7 +129,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
             </div>
           </div>
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-0.5">Totaal</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Totaal</p>
             <p className="text-xl font-bold text-blue-600">
               €{totalAmount.toFixed(2).replace(".", ",")}
             </p>
@@ -167,7 +167,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
               </button>
               <button
                 onClick={onClear}
-                className="flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 border border-gray-200"
+                className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 border border-gray-200"
               >
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -222,7 +222,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
       </div>
 
       {trips.length > 0 && (
-        <div className="mt-3 flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-gray-400">
+        <div className="mt-3 flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-gray-500">
           <span>
             {trips.length} {trips.length === 1 ? "rit" : "ritten"}
             {openCount < trips.length && ` · ${openCount} nog niet gedeclareerd`}
@@ -266,7 +266,7 @@ function AttachHintDialog({ onClose, onConfirm }: { onClose: () => void; onConfi
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-3 right-3 text-gray-500 hover:text-gray-600 transition-colors"
           aria-label="Sluiten"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

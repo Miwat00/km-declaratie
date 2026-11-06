@@ -282,7 +282,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
                 className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-0 ${active ? "bg-blue-50" : ""}`}
               >
                 <div className="text-sm font-medium text-gray-900">{loc.shortName}</div>
-                {sub && <div className="text-xs text-gray-400 truncate">{sub}</div>}
+                {sub && <div className="text-xs text-gray-500 truncate">{sub}</div>}
               </li>
             );
           })}

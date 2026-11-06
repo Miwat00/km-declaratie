@@ -13,6 +13,7 @@ import {
 } from "@/lib/storage";
 import { getDrivingDistanceKm } from "@/lib/osrm";
 import { toLocalISODate, formatDateNL as formatDate } from "@/lib/date";
+import { formatKm, parseKm } from "@/lib/format";
 import type { CalendarEvent, ClientEntry, Location } from "@/lib/types";
 import ClientDirectoryEditor from "@/components/ClientDirectoryEditor";
 import LocationInput from "@/components/LocationInput";
@@ -219,6 +220,7 @@ export default function AgendaPage() {
   }
 
   const enabledCount = generatedTrips.filter((t) => t.enabled).length;
+  const missingKmCount = generatedTrips.filter((t) => t.enabled && t.distanceKm <= 0).length;
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-4 sm:py-8">
@@ -290,8 +292,9 @@ export default function AgendaPage() {
       {step === 1 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
           <div>
-            <h2 className="text-base font-semibold text-gray-900 mb-1">Je naam</h2>
+            <label htmlFor="agenda-name" className="block text-base font-semibold text-gray-900 mb-1">Je naam</label>
             <input
+              id="agenda-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -343,8 +346,9 @@ export default function AgendaPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Van</label>
+                <label htmlFor="agenda-from" className="block text-xs font-medium text-gray-600 mb-1">Van</label>
                 <input
+                  id="agenda-from"
                   type="date"
                   value={range.from}
                   onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
@@ -352,8 +356,9 @@ export default function AgendaPage() {
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tot en met</label>
+                <label htmlFor="agenda-to" className="block text-xs font-medium text-gray-600 mb-1">Tot en met</label>
                 <input
+                  id="agenda-to"
                   type="date"
                   value={range.to}
                   onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
@@ -527,6 +532,13 @@ export default function AgendaPage() {
             )}
           </div>
 
+          {missingKmCount > 0 && (
+            <p className="text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2" role="alert">
+              {missingKmCount} {missingKmCount === 1 ? "rit heeft" : "ritten hebben"} nog geen afstand (de route kon niet
+              berekend worden). Vul de kilometers in via het potlood, of vink de rit uit.
+            </p>
+          )}
+
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(3)} className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
               Terug
@@ -534,7 +546,7 @@ export default function AgendaPage() {
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={enabledCount === 0}
+              disabled={enabledCount === 0 || missingKmCount > 0}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,6 +618,37 @@ function UnmatchedEventRow({
   );
 }
 
+// Afstand-invoer die de gebruiker vrij laat typen ("12," is tijdelijk ongeldig) en meeloopt
+// met een nieuw berekende afstand als een locatie verandert.
+function KmField({ id, value, onChange }: { id: string; value: number; onChange: (km: number) => void }) {
+  const [text, setText] = useState(value > 0 ? formatKm(value) : "");
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    if (parseKm(text) !== value) setText(value > 0 ? formatKm(value) : "");
+  }
+  const invalid = text.trim() !== "" && parseKm(text) === null;
+  return (
+    <div className="relative w-28">
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        value={text}
+        aria-invalid={invalid}
+        onChange={(e) => {
+          setText(e.target.value);
+          const km = parseKm(e.target.value);
+          if (km !== null) onChange(km);
+        }}
+        placeholder="0,0"
+        className={`w-full rounded-lg border px-3 py-2 pr-9 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${invalid ? "border-red-400" : "border-gray-300"}`}
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">km</span>
+    </div>
+  );
+}
+
 // Sub-component for preview row
 function TripPreviewRow({
   trip, homeAddress, editing, onToggle, onRemove, onEdit, onPatch, onLocationChange,
@@ -649,8 +692,8 @@ function TripPreviewRow({
             )}
           </div>
         </div>
-        <span className="text-sm font-mono font-bold text-gray-700 flex-shrink-0">
-          {trip.distanceKm > 0 ? `${trip.distanceKm.toFixed(1).replace(".", ",")} km` : "—"}
+        <span className={`text-sm font-mono font-bold flex-shrink-0 ${trip.distanceKm > 0 || !trip.enabled ? "text-gray-700" : "text-orange-600"}`}>
+          {trip.distanceKm > 0 ? `${formatKm(trip.distanceKm)} km` : "? km"}
         </span>
         <button
           type="button"
@@ -690,10 +733,11 @@ function TripPreviewRow({
               homeAddress={homeAddress}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Doel</label>
+              <label htmlFor={`${trip.id}-purpose`} className="block text-xs font-medium text-gray-600 mb-1">Doel</label>
               <input
+                id={`${trip.id}-purpose`}
                 type="text"
                 value={trip.purpose}
                 onChange={(e) => onPatch({ purpose: e.target.value })}
@@ -701,13 +745,18 @@ function TripPreviewRow({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Klant</label>
+              <label htmlFor={`${trip.id}-client`} className="block text-xs font-medium text-gray-600 mb-1">Klant</label>
               <input
+                id={`${trip.id}-client`}
                 type="text"
                 value={trip.client}
                 onChange={(e) => onPatch({ client: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+            <div>
+              <label htmlFor={`${trip.id}-km`} className="block text-xs font-medium text-gray-600 mb-1">Afstand</label>
+              <KmField id={`${trip.id}-km`} value={trip.distanceKm} onChange={(km) => onPatch({ distanceKm: km })} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">

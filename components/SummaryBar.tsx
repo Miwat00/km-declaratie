@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { exportToCsv, emailDeclaratie } from "@/lib/export";
 import type { Trip } from "@/lib/types";
+import { useFocusTrap } from "./useFocusTrap";
 
 type Props = {
   trips: Trip[];
@@ -116,6 +117,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
               <span className="text-xs text-gray-500">€</span>
               <input
                 type="number"
+                aria-label="Tarief voor nieuwe ritten in euro per kilometer"
                 value={rateInput}
                 onChange={handleRateChange}
                 onBlur={handleRateBlur}
@@ -193,6 +195,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
             <span className="text-sm text-gray-600">€</span>
             <input
               type="number"
+                aria-label="Tarief voor nieuwe ritten in euro per kilometer"
               value={rateInput}
               onChange={handleRateChange}
               onBlur={handleRateBlur}
@@ -234,41 +237,61 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint
       )}
 
       {showAttachHint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl px-8 py-7 max-w-sm w-full mx-4 flex flex-col items-center gap-5 text-center relative">
-            <button
-              onClick={() => setShowAttachHint(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Sluiten"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="bg-blue-50 text-blue-600 rounded-full p-4">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-base font-semibold text-gray-900 mb-1">Declaratie versturen</p>
-              <p className="text-sm text-gray-500">
-                Het <span className="font-medium text-gray-700">.csv bestand</span> wordt gedownload.
-                Voeg dit toe als bijlage in je e-mailprogramma en vul de ontvanger in voor het versturen.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setShowAttachHint(false);
-                emailDeclaratie(trips);
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-            >
-              Mail openen &amp; CSV downloaden
-            </button>
-          </div>
-        </div>
+        <AttachHintDialog
+          onClose={() => setShowAttachHint(false)}
+          onConfirm={() => {
+            setShowAttachHint(false);
+            emailDeclaratie(trips);
+          }}
+        />
       )}
+    </div>
+  );
+}
+
+function AttachHintDialog({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+  const { ref: trapRef, onKeyDown: trapKeyDown } = useFocusTrap<HTMLDivElement>(onClose);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        ref={trapRef}
+        onKeyDown={trapKeyDown}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="attach-hint-title"
+        className="bg-white rounded-2xl shadow-2xl px-8 py-7 max-w-sm w-full mx-4 flex flex-col items-center gap-5 text-center relative"
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Sluiten"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="bg-blue-50 text-blue-600 rounded-full p-4">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <p id="attach-hint-title" className="text-base font-semibold text-gray-900 mb-1">Declaratie versturen</p>
+          <p className="text-sm text-gray-500">
+            Het <span className="font-medium text-gray-700">.csv bestand</span> wordt gedownload.
+            Voeg dit toe als bijlage in je e-mailprogramma en vul de ontvanger in voor het versturen.
+          </p>
+        </div>
+        <button
+          onClick={onConfirm}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+        >
+          Mail openen &amp; CSV downloaden
+        </button>
+      </div>
     </div>
   );
 }

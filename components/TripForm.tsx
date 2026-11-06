@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import dynamic from "next/dynamic";
 import LocationInput from "./LocationInput";
 import { getRouteWithGeometry } from "@/lib/osrm";
 import { loadHomeAddress, saveHomeAddress, loadSettings, updateSettings, SETTINGS_EVENT } from "@/lib/storage";
 import { todayLocal } from "@/lib/date";
 import { tripRate } from "@/lib/export";
+import { formatKm, parseKm } from "@/lib/format";
 import type { Suggestion } from "@/lib/trips";
 import type { Location, Trip, RouteData } from "@/lib/types";
 
@@ -31,6 +32,14 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
   const [locA, setLocA] = useState<Location | null>(editing?.locationA ?? null);
   const [locB, setLocB] = useState<Location | null>(editing?.locationB ?? null);
   const [declared, setDeclared] = useState(!!editing?.declaredAt);
+  // Afstand: automatisch uit de route, tenzij handmatig ingevuld (of de opgeslagen waarde van een bewerkte rit)
+  const [kmManual, setKmManual] = useState(!!editing);
+  const [kmInput, setKmInput] = useState(editing ? formatKm(editing.distanceKm) : "");
+  const uid = useId();
+  const ids = {
+    name: `${uid}-name`, date: `${uid}-date`, purpose: `${uid}-purpose`, client: `${uid}-client`,
+    km: `${uid}-km`, kmHint: `${uid}-km-hint`, billable: `${uid}-billable`,
+  };
   const [retour, setRetour] = useState(false);
   const [routeAB, setRouteAB] = useState<RouteData | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -53,9 +62,25 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
     return () => window.removeEventListener(SETTINGS_EVENT, sync);
   }, [isEditing]);
 
+  function changeLocA(loc: Location | null) {
+    setLocA(loc);
+    setKmManual(false);
+  }
+
+  function changeLocB(loc: Location | null) {
+    setLocB(loc);
+    setKmManual(false);
+  }
+
+  function handleKmInput(value: string) {
+    setKmInput(value);
+    setKmManual(true);
+  }
+
   function applySuggestion(s: Suggestion) {
     setLocA(s.locationA);
     setLocB(s.locationB);
+    setKmManual(false);
     setPurpose(s.purpose);
     setClient(s.client);
     setBillable(s.billable);
@@ -67,6 +92,10 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
   }
 
   const effectiveName = name.trim();
+  const routeKm = routeAB?.distanceKm ?? null;
+  const km = kmManual ? parseKm(kmInput) : routeKm;
+  const kmDisplay = kmManual ? kmInput : routeKm !== null ? formatKm(routeKm) : "";
+  const kmInvalid = kmManual && kmInput.trim() !== "" && km === null;
 
   useEffect(() => {
     if (!locA || !locB) {
@@ -95,7 +124,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!locA || !locB || !routeAB || !date || !effectiveName || !purpose.trim() || !client.trim() || billable === null) return;
+    if (!locA || !locB || km === null || !date || !effectiveName || !purpose.trim() || !client.trim() || billable === null) return;
 
     setSubmitLoading(true);
     setSubmitError(null);
@@ -115,9 +144,9 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
         billable: billable!,
         locationA: locA,
         locationB: locB,
-        distanceKm: routeAB.distanceKm,
+        distanceKm: km,
         rate: tripRateValue,
-        amount: Math.round(routeAB.distanceKm * tripRateValue * 100) / 100,
+        amount: Math.round(km * tripRateValue * 100) / 100,
       });
       setSubmitLoading(false);
       return;
@@ -138,11 +167,19 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
         amount: Math.round(distKm * rate * 100) / 100,
       });
 
-      onAdd(makeTrip(locA, locB, routeAB.distanceKm));
+      onAdd(makeTrip(locA, locB, km));
 
       if (retour) {
-        const returnRoute = await getRouteWithGeometry(locB, locA);
-        onAdd(makeTrip(locB, locA, returnRoute.distanceKm));
+        // Handmatige afstand geldt ook voor de terugweg; anders de terugroute berekenen (valt terug op de heenweg)
+        let returnKm = km;
+        if (!kmManual) {
+          try {
+            returnKm = (await getRouteWithGeometry(locB, locA)).distanceKm;
+          } catch {
+            returnKm = km;
+          }
+        }
+        onAdd(makeTrip(locB, locA, returnKm));
       }
 
       setDate(todayLocal());
@@ -153,6 +190,8 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
       setLocB(null);
       setRetour(false);
       setRouteAB(null);
+      setKmManual(false);
+      setKmInput("");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Er ging iets mis");
     } finally {
@@ -161,7 +200,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
   }
 
   const canSubmit =
-    !!routeAB && !routeLoading && !!date && !!effectiveName &&
+    !!locA && !!locB && km !== null && !!date && !!effectiveName &&
     !!purpose.trim() && !!client.trim() && billable !== null && !submitLoading;
 
   return (
@@ -207,10 +246,12 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
           {/* Rij 1: Wie + Wanneer */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Je naam <span className="text-red-500">*</span>
+              <label htmlFor={ids.name} className="block text-sm font-medium text-gray-700 mb-1">
+                Je naam <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
+                id={ids.name}
+                required
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -220,14 +261,15 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
               />
             </div>
             <div className="sm:w-36">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Datum <span className="text-red-500">*</span>
+              <label htmlFor={ids.date} className="block text-sm font-medium text-gray-700 mb-1">
+                Datum <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
+                id={ids.date}
+                required
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                required
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -235,22 +277,65 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
 
           {/* Rij 2: Route */}
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <LocationInput label="Startpunt (adres)" value={locA} onChange={setLocA} disabled={submitLoading} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+            <LocationInput label="Startpunt (adres)" value={locA} onChange={changeLocA} disabled={submitLoading} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
             <div className="flex-shrink-0 text-gray-400 pb-2 hidden sm:block">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </div>
-            <LocationInput label="Eindpunt (adres)" value={locB} onChange={setLocB} disabled={submitLoading} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+            <LocationInput label="Eindpunt (adres)" value={locB} onChange={changeLocB} disabled={submitLoading} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+          </div>
+
+          {/* Afstand: automatisch berekend, handmatig aan te passen */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <label htmlFor={ids.km} className="text-sm font-medium text-gray-700">
+              Afstand <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <div className="relative">
+              <input
+                id={ids.km}
+                type="text"
+                inputMode="decimal"
+                value={kmDisplay}
+                onChange={(e) => handleKmInput(e.target.value)}
+                placeholder={routeLoading ? "…" : "0,0"}
+                aria-describedby={ids.kmHint}
+                aria-invalid={kmInvalid}
+                className={`w-24 rounded-lg border px-3 py-1.5 pr-9 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  kmInvalid ? "border-red-400" : "border-gray-300"
+                }`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">km</span>
+            </div>
+            <p id={ids.kmHint} className={`text-xs ${kmInvalid || (routeError && !kmManual) ? "text-orange-600" : "text-gray-500"}`} aria-live="polite">
+              {routeLoading && !kmManual ? (
+                "Route berekenen…"
+              ) : kmInvalid ? (
+                "Vul een afstand in, bijv. 12,5"
+              ) : routeError && !kmManual ? (
+                "Route niet gevonden. Vul de afstand zelf in."
+              ) : kmManual && routeKm !== null && km !== routeKm ? (
+                <>
+                  Handmatig aangepast (route: {formatKm(routeKm)} km).{" "}
+                  <button type="button" onClick={() => setKmManual(false)} className="text-blue-600 hover:underline">
+                    Route gebruiken
+                  </button>
+                </>
+              ) : routeKm !== null && !kmManual ? (
+                "Berekend via OpenStreetMap. Je kunt het aanpassen."
+              ) : null}
+            </p>
           </div>
 
           {/* Rij 3: Waarom + Facturering */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Waar was de rit voor? <span className="text-red-500">*</span>
+              <label htmlFor={ids.purpose} className="block text-sm font-medium text-gray-700 mb-1">
+                Waar was de rit voor? <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
+                id={ids.purpose}
+                required
                 type="text"
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
@@ -259,10 +344,12 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Klant / project <span className="text-red-500">*</span>
+              <label htmlFor={ids.client} className="block text-sm font-medium text-gray-700 mb-1">
+                Klant / project <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <input
+                id={ids.client}
+                required
                 type="text"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
@@ -271,12 +358,13 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
               />
             </div>
             <div className="flex-shrink-0 self-start sm:self-auto">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Factureerbaar? <span className="text-red-500">*</span>
-              </label>
-              <div className="flex rounded-lg overflow-hidden text-sm font-medium border border-gray-300 w-fit">
+              <span id={ids.billable} className="block text-sm font-medium text-gray-700 mb-1">
+                Factureerbaar? <span className="text-red-500" aria-hidden="true">*</span>
+              </span>
+              <div role="group" aria-labelledby={ids.billable} className="flex rounded-lg overflow-hidden text-sm font-medium border border-gray-300 w-fit">
                 <button
                   type="button"
+                  aria-pressed={billable === false}
                   onClick={() => setBillable(false)}
                   className={`px-4 py-2 transition-colors ${
                     billable === false
@@ -288,6 +376,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit,
                 </button>
                 <button
                   type="button"
+                  aria-pressed={billable === true}
                   onClick={() => setBillable(true)}
                   className={`px-4 py-2 border-l border-gray-300 transition-colors ${
                     billable === true

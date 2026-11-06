@@ -6,7 +6,8 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 
 ## Features
 
-- **Rit toevoegen** met adres-autocomplete, routekaart en automatische afstand (heen en terug in één keer)
+- **Rit toevoegen** met adres-autocomplete, routekaart en automatische afstand (heen en terug in één keer). De afstand kun je aanpassen (omleiding) of zelf invullen als de routeservice niet bereikbaar is
+- **Toegankelijk**: adressen kiezen met pijltjestoetsen en Enter, gekoppelde labels, en vensters die de focus vasthouden
 - **Snelknoppen** voor je thuis- en kantooradres
 - **Agenda-import** vanuit een `.ics`-export (Outlook, Google Calendar):
   - herkent terugkerende afspraken, verplaatste en geannuleerde afspraken

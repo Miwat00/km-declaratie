@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { searchLocations } from "@/lib/nominatim";
 import { loadSettings, SETTINGS_EVENT } from "@/lib/storage";
 import type { Location } from "@/lib/types";
@@ -23,6 +23,11 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
   const [savedFeedback, setSavedFeedback] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchIdRef = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const uid = useId();
+  const inputId = `${uid}-input`;
+  const listboxId = `${uid}-listbox`;
   const [office, setOffice] = useState<Location | null>(null);
   const [companyName, setCompanyName] = useState("");
 
@@ -66,22 +71,65 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
     }
 
     debounceRef.current = setTimeout(async () => {
+      const searchId = ++searchIdRef.current;
       setLoading(true);
       try {
         const locs = await searchLocations(val);
+        // Een trager, ouder zoekresultaat mag een nieuwer niet overschrijven
+        if (searchId !== searchIdRef.current) return;
         setResults(locs);
+        setActiveIndex(-1);
         setOpen(locs.length > 0);
       } finally {
-        setLoading(false);
+        if (searchId === searchIdRef.current) setLoading(false);
       }
     }, 400);
   }
 
   function handleSelect(loc: Location) {
+    searchIdRef.current++; // lopende zoekopdracht negeren
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setQuery(loc.shortName);
     onChange(loc);
     setOpen(false);
     setResults([]);
+    setActiveIndex(-1);
+    setLoading(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    const count = results.length;
+    switch (e.key) {
+      case "ArrowDown":
+        if (count === 0) return;
+        e.preventDefault();
+        setOpen(true);
+        setActiveIndex((i) => (i + 1) % count);
+        break;
+      case "ArrowUp":
+        if (count === 0) return;
+        e.preventDefault();
+        setOpen(true);
+        setActiveIndex((i) => (i <= 0 ? count - 1 : i - 1));
+        break;
+      case "Enter":
+        if (open && count > 0) {
+          e.preventDefault(); // niet het formulier versturen
+          handleSelect(results[activeIndex >= 0 ? activeIndex : 0]);
+        }
+        break;
+      case "Escape":
+        if (open) {
+          e.preventDefault();
+          e.stopPropagation(); // sluit alleen de lijst, niet een omliggend venster
+          setOpen(false);
+          setActiveIndex(-1);
+        }
+        break;
+      case "Tab":
+        setOpen(false);
+        break;
+    }
   }
 
   function handleSaveHome() {
@@ -107,7 +155,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
   return (
     <div ref={containerRef} className="relative flex-1 min-w-0">
       <div className="flex items-center justify-between mb-1 gap-1 flex-wrap">
-        <label className="block text-sm font-medium text-gray-700 flex-shrink-0">{label}</label>
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 flex-shrink-0">{label}</label>
         <div className="flex items-center gap-1 flex-wrap">
           {/* Thuis knopje — zichtbaar zodra thuisadres opgeslagen is */}
           {homeAddress && (
@@ -152,9 +200,17 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
 
       <div className="relative">
         <input
+          id={inputId}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open && results.length > 0}
+          aria-controls={listboxId}
+          aria-activedescendant={open && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
+          autoComplete="off"
           value={query}
           onChange={handleInput}
+          onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setOpen(true)}
           disabled={disabled}
           placeholder="Bijv. Keizersgracht 1, Amsterdam"
@@ -166,6 +222,7 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
           onClick={handleSaveHome}
           disabled={!value || isHome || isOffice}
           title="Sla op als thuisadres"
+          aria-label="Sla op als thuisadres"
           className={`absolute right-8 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors ${
             savedFeedback
               ? "text-green-500"
@@ -192,15 +249,37 @@ export default function LocationInput({ label, value, onChange, disabled, homeAd
         )}
       </div>
 
+      <span className="sr-only" aria-live="polite">
+        {open && results.length > 0
+          ? `${results.length} ${results.length === 1 ? "adres" : "adressen"} gevonden, kies met pijltjestoetsen`
+          : ""}
+      </span>
+
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <ul
+          id={listboxId}
+          role="listbox"
+          aria-label={`Suggesties voor ${label}`}
+          className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+        >
           {results.map((loc, i) => {
             const sub = getSubtitle(loc);
+            const active = i === activeIndex;
             return (
               <li
                 key={i}
-                onMouseDown={() => handleSelect(loc)}
-                className="px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                id={`${listboxId}-${i}`}
+                role="option"
+                aria-selected={active}
+                ref={(el) => {
+                  if (active && el) el.scrollIntoView({ block: "nearest" });
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // focus in het invoerveld houden
+                  handleSelect(loc);
+                }}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-0 ${active ? "bg-blue-50" : ""}`}
               >
                 <div className="text-sm font-medium text-gray-900">{loc.shortName}</div>
                 {sub && <div className="text-xs text-gray-400 truncate">{sub}</div>}

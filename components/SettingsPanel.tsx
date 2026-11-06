@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import LocationInput from "./LocationInput";
+import { useFocusTrap } from "./useFocusTrap";
 import { loadHomeAddress, loadSettings, saveHomeAddress, saveSettings } from "@/lib/storage";
 import { downloadBackup, parseBackup, restoreBackup, tripCountOf } from "@/lib/backup";
 import type { Location } from "@/lib/types";
@@ -39,11 +40,7 @@ export default function SettingsPanel({ onClose }: Props) {
     }
   }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const { ref: trapRef, onKeyDown: trapKeyDown } = useFocusTrap<HTMLFormElement>(onClose);
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +61,8 @@ export default function SettingsPanel({ onClose }: Props) {
       aria-labelledby="settings-title"
     >
       <form
+        ref={trapRef}
+        onKeyDown={trapKeyDown}
         onSubmit={handleSave}
         className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto"
       >
@@ -78,12 +77,12 @@ export default function SettingsPanel({ onClose }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Je naam</label>
-            <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Voornaam Achternaam" className={inputClass} />
+            <label htmlFor="settings-name" className="block text-sm font-medium text-gray-700 mb-1">Je naam</label>
+            <input id="settings-name" type="text" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Voornaam Achternaam" className={inputClass} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Werkgever <span className="text-gray-400 font-normal">(optioneel)</span></label>
-            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Bedrijfsnaam" className={inputClass} />
+            <label htmlFor="settings-company" className="block text-sm font-medium text-gray-700 mb-1">Werkgever <span className="text-gray-400 font-normal">(optioneel)</span></label>
+            <input id="settings-company" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Bedrijfsnaam" className={inputClass} />
           </div>
         </div>
 

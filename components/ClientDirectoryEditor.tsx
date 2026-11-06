@@ -99,8 +99,9 @@ export default function ClientDirectoryEditor({ entries, onChange }: Props) {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Koppeling toevoegen</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Zoekwoord (uit agenda-titel)</label>
+            <label htmlFor="client-dir-keyword" className="block text-xs font-medium text-gray-600 mb-1">Zoekwoord (uit agenda-titel)</label>
             <input
+              id="client-dir-keyword"
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
@@ -109,8 +110,9 @@ export default function ClientDirectoryEditor({ entries, onChange }: Props) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Klantnaam (voor de rit)</label>
+            <label htmlFor="client-dir-client" className="block text-xs font-medium text-gray-600 mb-1">Klantnaam (voor de rit)</label>
             <input
+              id="client-dir-client"
               type="text"
               value={client}
               onChange={(e) => setClient(e.target.value)}
@@ -120,8 +122,9 @@ export default function ClientDirectoryEditor({ entries, onChange }: Props) {
           </div>
         </div>
         <div className="relative">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Locatie</label>
+          <label htmlFor="client-dir-location" className="block text-xs font-medium text-gray-600 mb-1">Locatie</label>
           <input
+            id="client-dir-location"
             type="text"
             value={locQuery}
             onChange={handleLocInput}

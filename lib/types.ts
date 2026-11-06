@@ -18,6 +18,8 @@ export type Trip = {
   /** Tarief (€/km) op het moment van invoeren. Ontbreekt bij ritten van vóór v2.1. */
   rate?: number;
   amount: number;
+  /** YYYY-MM-DD waarop de rit als gedeclareerd is gemarkeerd. */
+  declaredAt?: string;
 };
 
 export type RouteData = {

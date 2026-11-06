@@ -6,6 +6,8 @@ import LocationInput from "./LocationInput";
 import { getRouteWithGeometry } from "@/lib/osrm";
 import { loadHomeAddress, saveHomeAddress, loadSettings, updateSettings, SETTINGS_EVENT } from "@/lib/storage";
 import { todayLocal } from "@/lib/date";
+import { tripRate } from "@/lib/export";
+import type { Suggestion } from "@/lib/trips";
 import type { Location, Trip, RouteData } from "@/lib/types";
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
@@ -13,16 +15,22 @@ const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
 type Props = {
   rate: number;
   onAdd: (trip: Trip) => void;
+  /** Rit die bewerkt wordt. Geef het formulier een `key` per rit, dan start het met deze waarden. */
+  editing?: Trip | null;
+  onUpdate?: (trip: Trip) => void;
+  onCancelEdit?: () => void;
+  suggestions?: Suggestion[];
 };
 
-export default function TripForm({ rate, onAdd }: Props) {
-  const [date, setDate] = useState(todayLocal);
-  const [name, setName] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [client, setClient] = useState("");
-  const [billable, setBillable] = useState<boolean | null>(null);
-  const [locA, setLocA] = useState<Location | null>(null);
-  const [locB, setLocB] = useState<Location | null>(null);
+export default function TripForm({ rate, onAdd, editing, onUpdate, onCancelEdit, suggestions = [] }: Props) {
+  const [date, setDate] = useState(() => editing?.date ?? todayLocal());
+  const [name, setName] = useState(editing?.name ?? "");
+  const [purpose, setPurpose] = useState(editing?.purpose ?? "");
+  const [client, setClient] = useState(editing?.client ?? "");
+  const [billable, setBillable] = useState<boolean | null>(editing ? editing.billable : null);
+  const [locA, setLocA] = useState<Location | null>(editing?.locationA ?? null);
+  const [locB, setLocB] = useState<Location | null>(editing?.locationB ?? null);
+  const [declared, setDeclared] = useState(!!editing?.declaredAt);
   const [retour, setRetour] = useState(false);
   const [routeAB, setRouteAB] = useState<RouteData | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -32,16 +40,26 @@ export default function TripForm({ rate, onAdd }: Props) {
   const [homeAddress, setHomeAddress] = useState<Location | null>(null);
   const routeFetchRef = useRef<number>(0);
 
+  const isEditing = !!editing;
+
   useEffect(() => {
     const sync = () => {
       setHomeAddress(loadHomeAddress());
       const saved = loadSettings().userName;
-      if (saved) setName(saved);
+      if (saved && !isEditing) setName(saved);
     };
     sync();
     window.addEventListener(SETTINGS_EVENT, sync);
     return () => window.removeEventListener(SETTINGS_EVENT, sync);
-  }, []);
+  }, [isEditing]);
+
+  function applySuggestion(s: Suggestion) {
+    setLocA(s.locationA);
+    setLocB(s.locationB);
+    setPurpose(s.purpose);
+    setClient(s.client);
+    setBillable(s.billable);
+  }
 
   function handleSaveHome(loc: Location) {
     saveHomeAddress(loc);
@@ -81,7 +99,29 @@ export default function TripForm({ rate, onAdd }: Props) {
 
     setSubmitLoading(true);
     setSubmitError(null);
-    if (effectiveName !== loadSettings().userName) updateSettings({ userName: effectiveName });
+    if (!editing && effectiveName !== loadSettings().userName) updateSettings({ userName: effectiveName });
+
+    if (editing && onUpdate) {
+      // Bewerkte rit houdt zijn eigen tarief
+      const tripRateValue = tripRate(editing);
+      const { declaredAt: previousDeclaredAt, ...rest } = editing;
+      onUpdate({
+        ...rest,
+        ...(declared ? { declaredAt: previousDeclaredAt ?? todayLocal() } : {}),
+        date,
+        name: effectiveName,
+        purpose: purpose.trim(),
+        client: client.trim(),
+        billable: billable!,
+        locationA: locA,
+        locationB: locB,
+        distanceKm: routeAB.distanceKm,
+        rate: tripRateValue,
+        amount: Math.round(routeAB.distanceKm * tripRateValue * 100) / 100,
+      });
+      setSubmitLoading(false);
+      return;
+    }
 
     try {
       const makeTrip = (from: Location, to: Location, distKm: number): Trip => ({
@@ -125,15 +165,44 @@ export default function TripForm({ rate, onAdd }: Props) {
     !!purpose.trim() && !!client.trim() && billable !== null && !submitLoading;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <form
+      id="trip-form"
+      onSubmit={handleSubmit}
+      className={`bg-white rounded-xl border shadow-sm scroll-mt-4 ${isEditing ? "border-blue-400 ring-2 ring-blue-100" : "border-gray-200"}`}
+    >
       {/* Zij-aan-zij layout op grote schermen */}
       <div className="flex flex-col lg:flex-row">
 
         {/* Linker kolom: alle invoervelden */}
         <div className="flex-1 p-5 space-y-4 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-            Nieuwe rit toevoegen
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+              {isEditing ? "Rit bewerken" : "Nieuwe rit toevoegen"}
+            </h2>
+            {isEditing && (
+              <button type="button" onClick={onCancelEdit} className="text-sm text-gray-500 hover:text-gray-700">
+                Annuleren
+              </button>
+            )}
+          </div>
+
+          {/* Snelkeuze: veelgereden ritten */}
+          {!isEditing && suggestions.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap -mt-1">
+              <span className="text-xs text-gray-400">Snelkeuze:</span>
+              {suggestions.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => applySuggestion(s)}
+                  className="text-xs px-2 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors max-w-[16rem] truncate"
+                  title={`${s.locationA.shortName} → ${s.locationB.shortName} · ${s.client} (${s.count}×)`}
+                >
+                  {s.purpose} · {s.locationB.shortName.split(",")[0]}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Rij 1: Wie + Wanneer */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
@@ -245,15 +314,28 @@ export default function TripForm({ rate, onAdd }: Props) {
               ) : (
                 <p className="text-xs text-gray-400">Alle velden met * zijn verplicht</p>
               )}
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={retour}
-                  onChange={(e) => setRetour(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Heen en terug</span>
-              </label>
+              {isEditing && (
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={declared}
+                    onChange={(e) => setDeclared(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Gedeclareerd</span>
+                </label>
+              )}
+              {!isEditing && (
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={retour}
+                    onChange={(e) => setRetour(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Heen en terug</span>
+                </label>
+              )}
             </div>
 
             <button
@@ -271,7 +353,7 @@ export default function TripForm({ rate, onAdd }: Props) {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  {retour ? "Heen + terug toevoegen" : "Rit toevoegen"}
+                  {isEditing ? "Wijzigingen opslaan" : retour ? "Heen + terug toevoegen" : "Rit toevoegen"}
                 </>
               )}
             </button>

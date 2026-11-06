@@ -13,9 +13,13 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
   - koppelt afspraken aan klanten via zoekwoorden, of aan je kantoor via "kantoor"/"office" in de titel
   - bouwt per dag een ritketen thuis → afspraak → afspraak → thuis
   - zoekt het locatieveld van onbekende afspraken alvast op (Teams/Zoom-links worden overgeslagen)
-- **Export** naar CSV (Excel-vriendelijk: `;` en komma-decimalen) of direct mailen; op mobiel als bijlage via het deelmenu
+- **Snelkeuze** voor routes die je vaker rijdt: één tik vult route, doel en klant in
+- **Ritten bewerken**: tik op een rit (mobiel) of op het potlood (desktop)
+- **Per maand declareren**: filter op maand en status, markeer ritten als gedeclareerd zodat je niets dubbel indient
+- **Export** naar CSV (Excel-vriendelijk: `;` en komma-decimalen), PDF (via afdrukken, met handtekeningregel) of direct mailen; op mobiel als bijlage via het deelmenu
 - **Tarief per rit**: als je het tarief wijzigt, blijven eerdere ritten op hun oude tarief staan
-- **Installeerbaar als app** (PWA) op iOS en Android
+- **Backup en herstel** als JSON-bestand, ook handig om naar een ander apparaat over te stappen
+- **Installeerbaar als app** (PWA) op iOS en Android, en opent ook zonder internet
 
 ## Starten
 
@@ -43,7 +47,9 @@ Open daarna <http://localhost:3000>. Bij de eerste keer vraagt de app om je naam
 
 - Geocoding: [Nominatim](https://nominatim.org/) (OpenStreetMap). De app houdt zich aan de [usage policy](https://operations.osmfoundation.org/policies/nominatim/) van maximaal 1 request per seconde. Ga je de app voor veel mensen hosten, gebruik dan een eigen Nominatim-instantie of een commerciële aanbieder.
 - Routes: de publieke [OSRM](https://project-osrm.org/)-demoserver. Die is bedoeld voor licht gebruik.
-- Kaart: [Leaflet](https://leafletjs.com/) met OpenStreetMap-tegels
+- Kaart: [Leaflet](https://leafletjs.com/) met [OpenStreetMap-tegels](https://operations.osmfoundation.org/policies/tiles/)
+
+Zonder internet kun je ritten bekijken, bewerken en exporteren. Nieuwe routes berekenen en adressen zoeken heeft wel internet nodig.
 
 ## Tech stack
 

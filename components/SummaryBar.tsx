@@ -9,9 +9,18 @@ type Props = {
   rate: number;
   onRateChange: (rate: number) => void;
   onClear: () => void;
+  onPrint: () => void;
+  onMarkDeclared: () => void;
 };
 
-export default function SummaryBar({ trips, rate, onRateChange, onClear }: Props) {
+const printIcon = (
+  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+  </svg>
+);
+
+export default function SummaryBar({ trips, rate, onRateChange, onClear, onPrint, onMarkDeclared }: Props) {
+  const openCount = trips.filter((t) => !t.declaredAt).length;
   const totalKm = trips.reduce((s, t) => s + t.distanceKm, 0);
   const totalAmount = trips.reduce((s, t) => s + t.amount, 0);
   const [rateInput, setRateInput] = useState(String(rate));
@@ -65,6 +74,14 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear }: Props
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <span>CSV</span>
+      </button>
+      <button
+        onClick={onPrint}
+        className="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+        title="Afdrukken of opslaan als PDF"
+      >
+        {printIcon}
+        <span>PDF</span>
       </button>
       <button
         onClick={handleVerstuur}
@@ -129,7 +146,7 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear }: Props
               Verstuur declaratie
             </button>
             {/* CSV + Leeg maken: secundaire rij */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => exportToCsv(trips)}
                 className="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -140,13 +157,20 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear }: Props
                 CSV
               </button>
               <button
+                onClick={onPrint}
+                className="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {printIcon}
+                PDF
+              </button>
+              <button
                 onClick={onClear}
                 className="flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 border border-gray-200"
               >
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Leeg maken
+                Wissen
               </button>
             </div>
           </div>
@@ -195,9 +219,18 @@ export default function SummaryBar({ trips, rate, onRateChange, onClear }: Props
       </div>
 
       {trips.length > 0 && (
-        <p className="mt-3 text-xs text-gray-400">
-          {trips.length} {trips.length === 1 ? "rit" : "ritten"} · een gewijzigd tarief geldt alleen voor nieuwe ritten
-        </p>
+        <div className="mt-3 flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-gray-400">
+          <span>
+            {trips.length} {trips.length === 1 ? "rit" : "ritten"}
+            {openCount < trips.length && ` · ${openCount} nog niet gedeclareerd`}
+          </span>
+          {openCount > 0 && (
+            <button onClick={onMarkDeclared} className="text-blue-600 hover:text-blue-800 font-medium">
+              Markeer {openCount === trips.length ? "alles" : `${openCount} open`} als gedeclareerd
+            </button>
+          )}
+          <span className="hidden sm:inline">· een gewijzigd tarief geldt alleen voor nieuwe ritten</span>
+        </div>
       )}
 
       {showAttachHint && (

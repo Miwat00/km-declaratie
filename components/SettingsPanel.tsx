@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LocationInput from "./LocationInput";
 import { loadHomeAddress, loadSettings, saveHomeAddress, saveSettings } from "@/lib/storage";
+import { downloadBackup, parseBackup, restoreBackup, tripCountOf } from "@/lib/backup";
 import type { Location } from "@/lib/types";
 
 type Props = {
@@ -16,6 +17,27 @@ export default function SettingsPanel({ onClose }: Props) {
   const [companyName, setCompanyName] = useState(initial.companyName);
   const [office, setOffice] = useState<Location | null>(initial.office);
   const [home, setHome] = useState<Location | null>(loadHomeAddress);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleRestore(file: File) {
+    setBackupError(null);
+    try {
+      const backup = parseBackup(await file.text());
+      const n = tripCountOf(backup);
+      const ok = confirm(
+        `Backup van ${backup.exportedAt.slice(0, 10)} met ${n} ${n === 1 ? "rit" : "ritten"} terugzetten?\n\n` +
+          "Al je huidige ritten en instellingen worden hierdoor vervangen."
+      );
+      if (!ok) return;
+      restoreBackup(localStorage, backup);
+      window.location.reload();
+    } catch (err) {
+      setBackupError(err instanceof Error ? err.message : "Terugzetten mislukt");
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -70,6 +92,32 @@ export default function SettingsPanel({ onClose }: Props) {
         <p className="text-xs text-gray-400 -mt-2">
           Afspraken met &quot;kantoor&quot; of &quot;office&quot; in de titel worden bij agenda-import aan dit adres gekoppeld.
         </p>
+
+        <div className="border-t border-gray-100 pt-4">
+          <h3 className="text-sm font-medium text-gray-700">Backup</h3>
+          <p className="text-xs text-gray-400 mt-0.5 mb-2">
+            Je gegevens staan alleen in deze browser. Download af en toe een backup, of zet je ritten zo over naar een ander apparaat.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={downloadBackup} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+              Backup downloaden
+            </button>
+            <button type="button" onClick={() => fileRef.current?.click()} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+              Backup terugzetten…
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleRestore(f);
+              }}
+            />
+          </div>
+          {backupError && <p className="text-sm text-red-600 mt-2">{backupError}</p>}
+        </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">

@@ -49,11 +49,13 @@ export default function RouteMap({ route, locationA, locationB }: Props) {
         zoom={10}
         style={{ height: "100%", width: "100%" }}
         zoomControl={true}
-        attributionControl={false}
+        attributionControl={true}
       >
+        {/* OSM-tegels vereisen naamsvermelding: https://operations.osmfoundation.org/policies/tiles/ */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <Polyline positions={route.coordinates} color="#2563eb" weight={4} opacity={0.85} />
         <Marker position={[locationA.lat, locationA.lon]} icon={greenIcon} />

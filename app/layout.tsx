@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="nl">
       <body className={`${inter.className} bg-gray-50 min-h-screen`}>
         {children}
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

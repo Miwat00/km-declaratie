@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  body {
+    background: white;
+  }
+}

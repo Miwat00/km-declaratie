@@ -12,7 +12,7 @@ const FOCUSABLE =
  * Geeft een ref en een onKeyDown-handler terug. De handler is een React-event, zodat een veld binnen
  * het venster (zoals de adreslijst) Escape zelf kan afvangen met stopPropagation.
  */
-export function useFocusTrap<T extends HTMLElement>(onEscape?: () => void) {
+export function useFocusTrap<T extends HTMLElement>(onEscape?: () => void, initialFocus: "first-field" | "container" = "first-field") {
   const ref = useRef<T>(null);
 
   useEffect(() => {
@@ -20,10 +20,14 @@ export function useFocusTrap<T extends HTMLElement>(onEscape?: () => void) {
     if (!container) return;
     const previous = document.activeElement as HTMLElement | null;
     const first =
-      container.querySelector<HTMLElement>("input:not([type=hidden]):not([disabled])") ??
-      container.querySelector<HTMLElement>(FOCUSABLE);
+      initialFocus === "container"
+        ? container
+        : container.querySelector<HTMLElement>("input:not([type=hidden]):not([disabled])") ??
+          container.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus();
     return () => previous?.focus?.();
+    // Alleen bij openen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onKeyDown = useCallback(

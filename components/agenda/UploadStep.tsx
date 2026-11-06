@@ -4,14 +4,24 @@ import type { AgendaImport } from "./useAgendaImport";
 
 export default function UploadStep({ imp }: { imp: AgendaImport }) {
   const {
-    name, setName, parseError, fileInputRef, handleFileUpload, handleDrop,
+    name, setName, hasSavedName, parseError, fileInputRef, handleFileUpload, handleDrop,
     calendarUrl, setCalendarUrl, rememberUrl, setRememberUrl, hasSavedUrl, fetchingUrl,
-    handleUrlImport, forgetCalendarUrl,
+    handleUrlImport, forgetCalendarUrl, autoFetching,
   } = imp;
+
+  // Met een onthouden link wordt de agenda meteen opgehaald
+  if (autoFetching) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-10 flex flex-col items-center gap-3 text-center" role="status">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+        <p className="text-sm text-gray-700">Je agenda wordt opgehaald…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
-      <div>
+      {!hasSavedName && <div>
         <label htmlFor="agenda-name" className="block text-base font-semibold text-gray-900 mb-1">Je naam</label>
         <input
           id="agenda-name"
@@ -22,7 +32,7 @@ export default function UploadStep({ imp }: { imp: AgendaImport }) {
           autoComplete="name"
           className="w-full sm:w-1/2 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-      </div>
+      </div>}
 
       {/* Optie 1: agenda-link plakken */}
       <form

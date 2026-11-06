@@ -102,3 +102,20 @@ export function saveCalendarUrl(url: string | null): void {
   if (url) localStorage.setItem(CALENDAR_URL_KEY, url);
   else localStorage.removeItem(CALENDAR_URL_KEY);
 }
+
+const SKIP_TITLES_KEY = "kilometer_skip_titles";
+
+/** Agendatitels waarvan je hebt gezegd: voortaan geen rit (genormaliseerd, kleine letters). */
+export function loadSkipTitles(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SKIP_TITLES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSkipTitles(titles: string[]): void {
+  localStorage.setItem(SKIP_TITLES_KEY, JSON.stringify(titles));
+}

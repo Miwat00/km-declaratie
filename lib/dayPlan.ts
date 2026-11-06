@@ -15,27 +15,30 @@ export type EventDecision =
 
 export type EventStatus =
   | { kind: "linked"; location: Location; client: string; billable: boolean; source: "koppeling" | "kantoor" | "agenda" | "handmatig" }
-  | { kind: "skip"; reason: "online" | "hele dag" | "handmatig" }
+  | { kind: "skip"; reason: "online" | "hele dag" | "handmatig" | "onthouden" }
   | { kind: "todo" };
 
 export type PlannedEvent = { event: CalendarEvent; status: EventStatus };
 
 /**
  * Bepaalt of een afspraak een rit oplevert:
- * eigen keuze > klant-koppeling of kantoor > online (geen rit) > hele dag (geen rit) > adres uit de agenda > nog te koppelen.
+ * eigen keuze > onthouden "geen rit" > klant-koppeling of kantoor > online > hele dag > adres uit de agenda > nog te vragen.
  */
 export function eventStatus(
   event: CalendarEvent,
   decision: EventDecision | undefined,
   directory: ClientEntry[],
   settings: Pick<Settings, "office" | "companyName">,
-  geocoded: Location | null | undefined
+  geocoded: Location | null | undefined,
+  skipTitles: string[] = []
 ): EventStatus {
   if (decision?.kind === "skip") return { kind: "skip", reason: "handmatig" };
   if (decision?.kind === "link") {
     const { location, client, billable } = decision;
     return { kind: "linked", location, client, billable, source: "handmatig" };
   }
+
+  if (skipTitles.includes(normalizeTitle(event.title))) return { kind: "skip", reason: "onthouden" };
 
   const stop = resolveStop(event, directory, settings);
   if (stop) {
@@ -46,6 +49,21 @@ export function eventStatus(
   if (!event.startTime) return { kind: "skip", reason: "hele dag" };
   if (geocoded) return { kind: "linked", location: geocoded, client: event.title, billable: true, source: "agenda" };
   return { kind: "todo" };
+}
+
+/** Titels vergelijken zonder hoofdletters en dubbele spaties. */
+export const normalizeTitle = (title: string) => title.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Standaard klant en factureerbaar voor een gekozen locatie: kantoor is intern, de rest een klantbezoek. */
+export function defaultsFor(
+  title: string,
+  location: Location,
+  settings: Pick<Settings, "office" | "companyName">
+): { client: string; billable: boolean } {
+  if (settings.office && sameLocation(location, settings.office)) {
+    return { client: settings.companyName || "Kantoor", billable: false };
+  }
+  return { client: title, billable: true };
 }
 
 // ---------- tijd ----------
@@ -255,3 +273,44 @@ export function addDays(date: string, n: number): string {
 
 /** De zeven dagen van een week, maandag eerst. */
 export const weekDays = (monday: string) => Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+
+const MONTHS = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+const MONTHS_SHORT = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
+/** 0 = maandag … 6 = zondag */
+export function weekdayIndex(date: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+
+/**
+ * Met welke week de import opent. Maandag t/m donderdag is dat vorige week, als daar nog afspraken
+ * zonder ritten in je overzicht staan; anders (en vanaf vrijdag) de huidige week.
+ */
+export function pickStartWeek(today: string, tripDates: string[], declaredDates: string[]): string {
+  const current = mondayOf(today);
+  if (weekdayIndex(today) <= 3) {
+    const previous = addDays(current, -7);
+    const declared = new Set(declaredDates);
+    const open = tripDates.some((d) => d >= previous && d < current && !declared.has(d));
+    if (open) return previous;
+  }
+  return current;
+}
+
+/** "Vorige week", "Deze week", "Volgende week" of "Week van 12 oktober". */
+export function weekLabel(monday: string, today: string): string {
+  const diff = Math.round((Date.parse(monday) - Date.parse(mondayOf(today))) / (7 * 86_400_000));
+  if (diff === 0) return "Deze week";
+  if (diff === -1) return "Vorige week";
+  if (diff === 1) return "Volgende week";
+  const [, m, d] = monday.split("-").map(Number);
+  return `Week van ${d} ${MONTHS[m - 1]}`;
+}
+
+/** "2 – 6 nov" of "28 sep – 2 okt" */
+export function rangeLabel(first: string, last: string): string {
+  const [, m1, d1] = first.split("-").map(Number);
+  const [, m2, d2] = last.split("-").map(Number);
+  return m1 === m2 ? `${d1} – ${d2} ${MONTHS_SHORT[m2 - 1]}` : `${d1} ${MONTHS_SHORT[m1 - 1]} – ${d2} ${MONTHS_SHORT[m2 - 1]}`;
+}

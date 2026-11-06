@@ -21,7 +21,7 @@ test("de app werkt binnen de Content Security Policy", async ({ page }) => {
   await form.getByRole("button", { name: "Kantoor" }).nth(1).click();
   await expect(form.getByLabel("Afstand")).not.toHaveValue("");
   await page.goto("/agenda");
-  await expect(page.getByRole("heading", { name: "Agenda importeren" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ritten uit je agenda" })).toBeVisible();
 
   expect(violations).toEqual([]);
 });

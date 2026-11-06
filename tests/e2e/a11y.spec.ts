@@ -32,7 +32,7 @@ test("instellingenvenster", async ({ page }) => {
 
 test("agenda-import", async ({ page }) => {
   await seed(page, DEFAULT_SEED, "/agenda");
-  await expect(page.getByRole("heading", { name: "Agenda importeren" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ritten uit je agenda" })).toBeVisible();
   await expectNoSeriousViolations(page);
 });
 
@@ -47,7 +47,7 @@ test("weekweergave van de agenda-import", async ({ page }) => {
     "END:VCALENDAR",
   ].join("\r\n");
   await page.locator("input[type=file]").setInputFiles({ name: "a.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
-  await expect(page.getByRole("button", { name: "Vorige week" })).toBeVisible();
-  await expect(page.getByText("berekenen")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Week eerder" })).toBeVisible();
+  await expect(page.getByText("Afstanden berekenen")).toHaveCount(0);
   await expectNoSeriousViolations(page);
 });

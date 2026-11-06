@@ -13,7 +13,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 <p>
   <img src="docs/screenshots/mobiel.png" alt="Rittenlijst op mobiel met gedeclareerde ritten" width="260">
   &nbsp;
-  <img src="docs/screenshots/agenda-week.png" alt="Agenda-import in een weekweergave: afspraken met reisblokken ervoor en erna, en een afspraak die nog een locatie nodig heeft" width="520">
+  <img src="docs/screenshots/agenda-week.png" alt="Ritten uit je agenda: de week per dag met afstanden, en rechts de vraag waar een afspraak was" width="520">
 </p>
 
 ## Features
@@ -21,13 +21,13 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 - **Rit toevoegen** met adres-autocomplete, routekaart en automatische afstand (heen en terug in één keer). De afstand kun je aanpassen (omleiding) of zelf invullen als de routeservice niet bereikbaar is
 - **Toegankelijk**: adressen kiezen met pijltjestoetsen en Enter, gekoppelde labels, en vensters die de focus vasthouden
 - **Snelknoppen** voor je thuis- en kantooradres
-- **Agenda-import** via een geplakte agenda-link (Outlook, Google Agenda, iCloud; met één klik opnieuw op te halen) of een `.ics`-bestand:
-  - **weekweergave**: je afspraken als blokken in de tijd, met de ritten ervoor en erna als reisblokken op hun echte reistijd
-  - per dag een ritketen thuis → afspraak → afspraak → thuis; afspraken die nog een locatie nodig hebben zijn oranje
-  - koppelen met één klik (Thuis, Kantoor, recente adressen) en onthouden voor volgende keer; "Geen rit" voor afspraken zonder rit
-  - zelf een reisblok toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
+- **Ritten uit je agenda** via een geplakte agenda-link (Outlook, Google Agenda, iCloud) of een `.ics`-bestand:
+  - met een onthouden link opent de app direct op de week die je nog moet declareren
+  - afspraken waarvan de plek onbekend is, stelt de app als vraag ("Waar was “Lunch met Jan”?") met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" onthoudt het antwoord, en elke keuze is ongedaan te maken
+  - per dag een ritketen thuis → afspraak → afspraak → thuis, met de afstand tussen de afspraken; dagen krijgen een vinkje als ze klaar zijn
+  - zelf een tussenstop toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
   - herkent terugkerende, verplaatste, geannuleerde en online afspraken (Teams/Zoom) en zoekt adressen uit het locatieveld op
-  - ritten die al in je overzicht staan worden grijs en niet dubbel toegevoegd
+  - ritten die al in je declaratie staan worden niet dubbel toegevoegd
 - **Snelkeuze** voor routes die je vaker rijdt: één tik vult route, doel en klant in
 - **Ritten bewerken**: tik op een rit (mobiel) of op het potlood (desktop)
 - **Per maand declareren**: filter op maand en status, markeer ritten als gedeclareerd zodat je niets dubbel indient

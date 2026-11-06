@@ -77,7 +77,7 @@ const browser = await chromium.launch();
   await page.context().close();
 }
 
-// 3. Agenda-import: weekweergave met een afspraak die nog gekoppeld moet worden
+// 3. Agenda-import: week met de vraag voor een afspraak zonder plek
 {
   const page = await newPage(browser, { viewport: { width: 1200, height: 1000 }, deviceScaleFactor: 2 });
   await page.clock.setFixedTime(new Date("2026-11-11T10:00:00+01:00"));
@@ -94,11 +94,10 @@ const browser = await chromium.launch();
     "END:VCALENDAR",
   ].join("\r\n");
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
-  await page.getByRole("button", { name: "Vorige week" }).waitFor();
+  await page.getByRole("button", { name: "Week eerder" }).waitFor();
   // Wachten tot alle routes berekend zijn
-  await page.getByText("Routes berekenen…").waitFor({ state: "detached", timeout: 60_000 }).catch(() => {});
+  await page.getByText("Afstanden berekenen…").waitFor({ state: "detached", timeout: 60_000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  await page.getByRole("button", { name: /^Lunch met Jan/ }).click();
   await page.screenshot({ path: `${OUT}/agenda-week.png`, fullPage: true });
   await page.context().close();
 }

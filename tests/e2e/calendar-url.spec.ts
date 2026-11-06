@@ -7,7 +7,7 @@ const ICS = [
   "END:VCALENDAR",
 ].join("\r\n");
 
-test("agenda ophalen via een geplakte link en die onthouden", async ({ page }) => {
+test("agenda ophalen via een geplakte link; daarna opent de week meteen", async ({ page }) => {
   // De browser praat alleen met de eigen /api/calendar; die bootsen we hier na
   const requests: unknown[] = [];
   await page.route("**/api/calendar", async (route) => {
@@ -18,12 +18,17 @@ test("agenda ophalen via een geplakte link en die onthouden", async ({ page }) =
   await seed(page, DEFAULT_SEED, "/agenda");
   await page.getByLabel("Agenda-link plakken").fill(LINK);
   await page.getByRole("button", { name: "Afspraken ophalen" }).click();
-
-  await expect(page.getByRole("button", { name: "Vorige week" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Week eerder" })).toBeVisible();
   expect(requests).toEqual([{ url: LINK }]);
 
-  // Volgende keer staat de link al klaar
+  // Volgende keer haalt de app de agenda zelf op en sla je het ophaalscherm over
   await page.reload();
+  await expect(page.getByRole("button", { name: "Week eerder" })).toBeVisible();
+  await expect(page.getByText(/Agenda bijgewerkt om/)).toBeVisible();
+  expect(requests).toHaveLength(2);
+
+  // Via "Andere agenda" kun je de link vergeten
+  await page.getByRole("button", { name: "Andere agenda" }).click();
   await expect(page.getByLabel("Agenda-link plakken")).toHaveValue(LINK);
   await page.getByRole("button", { name: "Opgeslagen link vergeten" }).click();
   await expect(page.getByLabel("Agenda-link plakken")).toHaveValue("");

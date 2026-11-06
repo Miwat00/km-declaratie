@@ -3,7 +3,6 @@
 import Link from "next/link";
 import ClientDirectoryEditor from "@/components/ClientDirectoryEditor";
 import { useAgendaImport } from "@/components/agenda/useAgendaImport";
-import StepIndicator from "@/components/agenda/StepIndicator";
 import UploadStep from "@/components/agenda/UploadStep";
 import WeekStep from "@/components/agenda/WeekStep";
 
@@ -27,20 +26,21 @@ export default function AgendaPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Agenda importeren</h1>
-            <p className="text-xs text-gray-500">Genereer ritten vanuit je Outlook agenda</p>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">Ritten uit je agenda</h1>
+            <p className="text-xs text-gray-600">Beantwoord een paar vragen en je week staat klaar</p>
           </div>
           <button
             type="button"
             onClick={() => setShowDirectory(!showDirectory)}
             className="ml-auto flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-            title="Klant-locatie koppelingen beheren"
+            title="Plekken die de app per afspraak onthoudt"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Klanten
+            <span className="hidden sm:inline">Onthouden plekken</span>
+            <span className="sr-only sm:hidden">Onthouden plekken</span>
           </button>
         </div>
       </header>
@@ -48,15 +48,13 @@ export default function AgendaPage() {
       {/* Client Directory panel */}
       {showDirectory && (
         <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Klant-locatie koppelingen</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Onthouden plekken</h2>
           <p className="text-xs text-gray-500 mb-3">
-            Koppel zoekwoorden uit je agenda-titels aan adressen. Bijv. &quot;Klant X&quot; → Adres in Rotterdam.
+            Afspraken waarvan de titel een van deze woorden bevat, krijgen automatisch dit adres. Bijv. &quot;Acme&quot; → Coolsingel 40, Rotterdam.
           </p>
           <ClientDirectoryEditor entries={directory} onChange={handleDirectoryChange} />
         </div>
       )}
-
-      <StepIndicator step={step} />
 
       {step === 1 && <UploadStep imp={imp} />}
       {step === 2 && <WeekStep imp={imp} />}

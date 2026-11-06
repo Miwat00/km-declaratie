@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, eventStatus, fromMin, legToTrip, mondayOf, planDay, routeKey, toMin, weekSummary,
+  addDays, defaultsFor, eventStatus, fromMin, legToTrip, mondayOf, pickStartWeek, planDay, rangeLabel, routeKey, toMin, weekLabel, weekSummary,
   type EventDecision, type ManualStop, type PlannedEvent, type RouteLookup,
 } from "@/lib/dayPlan";
 import type { CalendarEvent, ClientEntry, Location } from "@/lib/types";
@@ -123,5 +123,44 @@ describe("weekhulp", () => {
     expect(mondayOf("2026-11-15")).toBe("2026-11-09");
     expect(mondayOf("2026-11-09")).toBe("2026-11-09");
     expect(addDays("2026-12-28", 7)).toBe("2027-01-04");
+  });
+});
+
+describe("onthouden 'geen rit'", () => {
+  it("slaat afspraken met een onthouden titel over, ook met andere hoofdletters", () => {
+    const status = eventStatus(ev("Lunch  met JAN", "12:00"), undefined, directory, settings, KLANT, ["lunch met jan"]);
+    expect(status).toEqual({ kind: "skip", reason: "onthouden" });
+  });
+  it("een eigen keuze voor deze ene afspraak gaat voor", () => {
+    const status = eventStatus(ev("Lunch met Jan", "12:00"), { kind: "link", location: KLANT, client: "X", billable: true }, directory, settings, null, ["lunch met jan"]);
+    expect(status.kind).toBe("linked");
+  });
+});
+
+describe("defaultsFor", () => {
+  it("kantoor is intern, een ander adres een klantbezoek", () => {
+    expect(defaultsFor("Overleg", OFFICE, settings)).toEqual({ client: "Mijn Bedrijf", billable: false });
+    expect(defaultsFor("Overleg", KLANT, settings)).toEqual({ client: "Overleg", billable: true });
+  });
+});
+
+describe("pickStartWeek en labels", () => {
+  // 2026-11-02 is een maandag
+  it("opent maandag t/m donderdag op vorige week als die nog open is", () => {
+    expect(pickStartWeek("2026-11-11", ["2026-11-03", "2026-11-12"], [])).toBe("2026-11-02");
+    expect(pickStartWeek("2026-11-12", ["2026-11-03"], [])).toBe("2026-11-02");
+  });
+  it("blijft op deze week als vorige week al gedeclareerd is of het vrijdag of later is", () => {
+    expect(pickStartWeek("2026-11-11", ["2026-11-03"], ["2026-11-03"])).toBe("2026-11-09");
+    expect(pickStartWeek("2026-11-13", ["2026-11-03"], [])).toBe("2026-11-09");
+    expect(pickStartWeek("2026-11-10", [], [])).toBe("2026-11-09");
+  });
+  it("geeft leesbare weeklabels", () => {
+    expect(weekLabel("2026-11-09", "2026-11-11")).toBe("Deze week");
+    expect(weekLabel("2026-11-02", "2026-11-11")).toBe("Vorige week");
+    expect(weekLabel("2026-11-16", "2026-11-11")).toBe("Volgende week");
+    expect(weekLabel("2026-10-12", "2026-11-11")).toBe("Week van 12 oktober");
+    expect(rangeLabel("2026-11-02", "2026-11-06")).toBe("2 – 6 nov");
+    expect(rangeLabel("2026-09-28", "2026-10-02")).toBe("28 sep – 2 okt");
   });
 });

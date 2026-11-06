@@ -17,95 +17,108 @@ const ICS = [
 ].join("\r\n");
 
 const nl = (n: number) => n.toFixed(1).replace(".", ",");
-const home = shortName(ADDRESSES.home);
-const office = shortName(ADDRESSES.office);
-const client = shortName(ADDRESSES.client);
+const first = (a: (typeof ADDRESSES)[keyof typeof ADDRESSES]) => shortName(a).split(",")[0];
+const home = first(ADDRESSES.home);
+const office = first(ADDRESSES.office);
+const client = first(ADDRESSES.client);
 
 async function openWeek(page: Page, ics = ICS) {
-  // Vaste "vandaag", zodat de app op de week van 2 november opent
+  // Woensdag 4 november: de app opent op deze week (vorige week heeft geen afspraken)
   await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
   await seed(page, DEFAULT_SEED, "/agenda");
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
-  await expect(page.getByRole("heading", { name: "2 nov – 6 nov" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Deze week · 2 – 6 nov/ })).toBeVisible();
 }
 
-/** Op mobiel staat één dag in beeld; kies dan eerst de juiste dag-tab. */
-async function showDay(page: Page, tab: string) {
-  const t = page.getByRole("tab", { name: tab });
-  if (await t.isVisible()) await t.click();
-}
-
-/** Ritblok in de week; de naam begint met "Rit" en bevat "<van> → <naar>" (bij korte ritten staat de afstand ervoor). */
+/** Ritregel in een dag; de naam bevat "Rit", de afstand en "<van> → <naar>". */
 const leg = (page: Page, from: string, to: string) =>
-  page.getByRole("button", { name: new RegExp(`^Rit .*${from.split(",")[0]} → ${to.split(",")[0]}`) });
+  page.getByRole("button", { name: new RegExp(`^Rit .*${from} → ${to}`) });
 
-test("week controleren: koppelen, reisblok toevoegen en ritten toevoegen", async ({ page }) => {
+/** Sluit het onderpaneel op mobiel; op desktop staat het paneel ernaast en hoeft dat niet. */
+async function closeSheet(page: Page) {
+  const sheet = page.getByRole("dialog", { name: "Aanpassen" });
+  if (await sheet.isVisible()) await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+}
+
+test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declaratie zetten", async ({ page }) => {
   await openWeek(page);
-  await expect(page.getByText("1 afspraak wacht op een locatie")).toBeVisible();
 
-  // Maandag: kantoor gekoppeld via het trefwoord, met ritten ervoor en erna
-  await showDay(page, "ma 2");
+  // Kantoor via het trefwoord, met ritten ervoor en erna; Teams levert geen rit op
   await expect(leg(page, home, office)).toContainText(nl(fakeRouteKm(ADDRESSES.home, ADDRESSES.office)));
   await expect(leg(page, office, home)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^\d\d:\d\d Sync Online/ })).toBeVisible();
 
-  // Woensdag: Teams-afspraak levert geen rit op
-  await showDay(page, "wo 4");
-  await expect(page.getByRole("button", { name: /^Sync.*Online · geen rit/ })).toBeVisible();
+  // De app vraagt waar de lunch was
+  await expect(page.getByText("Nog 1 vraag, daarna is je week klaar")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Waar was “Lunch met Jan”?" })).toBeVisible();
+  await page.getByRole("button", { name: "Ander adres…" }).click();
+  await page.getByRole("combobox", { name: "Ander adres" }).fill("Jaarbeursplein 6, Utrecht");
+  await page.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
+  await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Lunch met Jan: Jaarbeursplein 6, Utrecht, ook voortaan" })).toBeVisible();
+  await expect(leg(page, home, client)).toHaveCount(2); // dinsdag (workshop) en donderdag (lunch)
 
-  // Donderdag: lunch koppelen aan een adres en onthouden
-  await showDay(page, "do 5");
-  await page.getByRole("button", { name: /^Lunch met Jan.*Locatie nodig/ }).click();
-  const panel = page.getByRole("region", { name: "Afspraak Lunch met Jan" });
-  await panel.getByRole("combobox", { name: "Waar was dit?" }).fill("Jaarbeursplein 6, Utrecht");
-  await panel.getByRole("option", { name: new RegExp(client) }).click();
-  await panel.getByRole("button", { name: "Koppelen" }).click();
-  await expect(page.getByText("wacht op een locatie")).toBeHidden();
-  // Op desktop staan dinsdag (workshop) en donderdag (lunch) allebei in beeld
-  await expect(leg(page, home, client).last()).toBeVisible();
-
-  // Woensdag: zelf een reisblok toevoegen (materiaal ophalen in Rotterdam)
-  await showDay(page, "wo 4");
-  await page.getByRole("button", { name: "+ rit toevoegen op wo 4" }).click();
-  const add = page.getByRole("region", { name: "Reisblok toevoegen" });
+  // Zelf een tussenstop toevoegen op woensdag
+  await page.getByRole("button", { name: "+ Tussenstop toevoegen op wo 4" }).click();
+  const add = page.getByRole("region", { name: "Tussenstop toevoegen" });
   await add.getByRole("combobox", { name: "Waar ging je naartoe?" }).fill("Coolsingel 40");
-  await add.getByRole("option", { name: new RegExp(office) }).click();
-  await add.getByLabel("Aankomst rond").fill("10:00");
+  await add.getByRole("option", { name: new RegExp(shortName(ADDRESSES.office)) }).click();
+  await add.getByLabel("Rond").fill("10:00");
   await add.getByLabel("Waarvoor?").fill("Materiaal ophalen");
   await add.getByRole("button", { name: "Toevoegen" }).click();
-  await expect(page.getByRole("button", { name: /^Tussenstop Materiaal ophalen/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Tussenstop 10:00 Materiaal ophalen/ })).toBeVisible();
 
   // Ma 2 + di 2 + wo 2 + do 2
-  await page.getByRole("button", { name: "Voeg 8 ritten toe" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "8 ritten toegevoegd" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Voeg 0 ritten toe" })).toBeDisabled();
+  await page.getByRole("button", { name: "Zet 8 ritten in je declaratie" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "8 ritten staan in je declaratie" })).toBeVisible();
+  await expect(leg(page, home, office).first()).toContainText("al in declaratie");
 
   const stored = await page.evaluate(() => ({
     trips: JSON.parse(localStorage.getItem("kilometer_trips") ?? "[]"),
     directory: JSON.parse(localStorage.getItem("kilometer_client_directory") ?? "[]"),
   }));
-  expect(stored.trips.map((t: { date: string; purpose: string }) => `${t.date} ${t.purpose}`).sort()).toEqual([
-    "2026-11-02 Kantoordag", "2026-11-02 Kantoordag",
-    "2026-11-03 Workshop bij klant", "2026-11-03 Workshop bij klant",
-    "2026-11-04 Materiaal ophalen", "2026-11-04 Materiaal ophalen",
-    "2026-11-05 Lunch met Jan", "2026-11-05 Lunch met Jan",
+  expect(stored.trips.map((t: { date: string; purpose: string; billable: boolean }) => `${t.date} ${t.purpose} ${t.billable ? "fact" : "intern"}`).sort()).toEqual([
+    "2026-11-02 Kantoordag intern", "2026-11-02 Kantoordag intern",
+    "2026-11-03 Workshop bij klant fact", "2026-11-03 Workshop bij klant fact",
+    "2026-11-04 Materiaal ophalen intern", "2026-11-04 Materiaal ophalen intern",
+    "2026-11-05 Lunch met Jan fact", "2026-11-05 Lunch met Jan fact",
   ]);
   expect(stored.directory.map((d: { keyword: string }) => d.keyword)).toContain("Lunch met Jan");
 });
 
-test("ritten zonder afstand blokkeren het toevoegen tot je de afstand invult", async ({ page, map }) => {
+test("'geen rit' kun je ongedaan maken en voortaan onthouden", async ({ page }) => {
+  await openWeek(page);
+  await page.getByRole("button", { name: /^Geen rit/ }).click();
+  const toast = page.getByRole("status").filter({ hasText: "Lunch met Jan: geen rit, ook voortaan" });
+  await expect(toast).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
+
+  await toast.getByRole("button", { name: "Ongedaan maken" }).click();
+  await expect(page.getByRole("heading", { name: "Waar was “Lunch met Jan”?" })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("kilometer_skip_titles"))).toBe("[]");
+
+  // Nu echt: geen rit, en bij een volgende keer wordt het niet meer gevraagd
+  await page.getByRole("button", { name: /^Geen rit/ }).click();
+  await page.getByRole("button", { name: "Andere agenda" }).click();
+  await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ICS) });
+  await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
+});
+
+test("ritten zonder afstand blokkeren tot je de afstand invult", async ({ page, map }) => {
   map.failRouting();
   await openWeek(page, ICS.replace(/BEGIN:VEVENT\r\nUID:workshop[\s\S]*END:VCALENDAR/, "END:VCALENDAR"));
-  await showDay(page, "ma 2");
 
   await expect(page.getByText("2 ritten hebben nog geen afstand")).toBeVisible();
-  const confirm = page.getByRole("button", { name: "Voeg 2 ritten toe" });
+  const confirm = page.getByRole("button", { name: "Zet 2 ritten in je declaratie" });
   await expect(confirm).toBeDisabled();
 
   for (const [from, to, km] of [[home, office, "79,9"], [office, home, "80"]] as const) {
     await leg(page, from, to).click();
-    const panel = page.getByRole("region", { name: `Rit ${from} naar ${to}` });
-    await expect(panel.getByText("Route niet gevonden")).toBeVisible();
+    const panel = page.getByRole("region", { name: new RegExp(`^Rit ${from}.* naar ${to}`) });
+    await expect(panel.getByText("De afstand kon niet berekend worden")).toBeVisible();
     await panel.getByLabel("Afstand").fill(km);
+    await closeSheet(page);
   }
   await expect(page.getByText("nog geen afstand")).toBeHidden();
   await expect(confirm).toBeEnabled();
@@ -113,16 +126,16 @@ test("ritten zonder afstand blokkeren het toevoegen tot je de afstand invult", a
 
 test("een rit uitzetten en een afspraak overslaan telt niet mee", async ({ page }) => {
   await openWeek(page);
-  await showDay(page, "ma 2");
   await leg(page, office, home).click();
   await page.getByRole("button", { name: "Niet declareren" }).click();
+  await closeSheet(page);
   await expect(leg(page, office, home)).toContainText("telt niet mee");
 
-  await showDay(page, "di 3");
-  await page.getByRole("button", { name: /^Workshop bij klant/ }).click();
+  await page.getByRole("button", { name: /^13:00 Workshop bij klant/ }).click();
   await page.getByRole("region", { name: "Afspraak Workshop bij klant" }).getByRole("button", { name: "Geen rit" }).click();
+  await closeSheet(page);
   await expect(leg(page, home, client)).toHaveCount(0);
 
-  // Alleen nog maandag heen
-  await expect(page.getByRole("button", { name: "Voeg 1 rit toe" })).toBeEnabled();
+  // Alleen maandag heen telt (de lunch is nog een open vraag)
+  await expect(page.getByRole("button", { name: "Zet 1 rit in je declaratie" })).toBeEnabled();
 });

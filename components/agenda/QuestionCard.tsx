@@ -24,6 +24,9 @@ function Icon({ d }: { d: string }) {
     </svg>
   );
 }
+const HOME_ICON = "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6";
+const CAR_ICON = "M5 17h14M6 17l1.5-6h9L18 17M8 17v2m8-2v2M7.5 11l1-3h7l1 3";
+const TRAIN_ICON = "M8 17l-2 4m10-4l2 4M7 3h10a2 2 0 012 2v8a4 4 0 01-4 4H9a4 4 0 01-4-4V5a2 2 0 012-2zm-2 8h14M9 14h.01M15 14h.01";
 const ICONS = {
   recent: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
   office: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
@@ -99,11 +102,51 @@ function Question({ imp, item, remaining }: { imp: AgendaImport; item: PlannedEv
   );
 }
 
+/** Per dag: "Hoe zag dinsdag eruit?" Eén antwoord regelt alle afspraken van die dag. */
+function DayQuestion({ imp, date, remaining }: { imp: AgendaImport; date: string; remaining: number }) {
+  const { planned, setDayMode, settings } = imp;
+  const titles = planned.filter((p) => p.event.date === date).map((p) => p.event.title);
+  const answers: { text: string; sub: string; icon: string; place: "thuis" | "kantoor" | "pad"; transport: "auto" | "ov" }[] = [
+    { text: "Thuis gewerkt", sub: "geen ritten", icon: HOME_ICON, place: "thuis", transport: "auto" },
+    ...(settings.office
+      ? [
+          { text: "Op kantoor, met de auto", sub: "thuis → kantoor → thuis", icon: ICONS.office, place: "kantoor" as const, transport: "auto" as const },
+          { text: "Op kantoor, met het OV", sub: "geen ritten", icon: TRAIN_ICON, place: "kantoor" as const, transport: "ov" as const },
+        ]
+      : []),
+    { text: "Op pad, met de auto", sub: "per afspraak de plek kiezen", icon: CAR_ICON, place: "pad", transport: "auto" },
+  ];
+  return (
+    <section aria-labelledby="question-title" className="space-y-3">
+      <p className="text-sm text-gray-600">
+        {remaining === 1 ? "Nog 1 vraag, daarna is je week klaar" : `Nog ${remaining} vragen, daarna is je week klaar`}
+      </p>
+      <div>
+        <h2 id="question-title" className="text-base font-semibold text-gray-900">Hoe zag {longDate(date).toLowerCase()} eruit?</h2>
+        <p className="text-sm text-gray-600 truncate">In je agenda: {titles.join(", ")}</p>
+      </div>
+      <div className="grid gap-2">
+        {answers.map((a) => (
+          <button key={a.text} type="button" className={answerClass} onClick={() => setDayMode(date, { place: a.place, transport: a.transport })}>
+            <Icon d={a.icon} />
+            {a.text}
+            <span className="ml-auto text-xs text-gray-500 text-right">{a.sub}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function QuestionCard({ imp }: { imp: AgendaImport }) {
-  const { questions, summary, planned } = imp;
+  const { questions, dayQuestions, summary, planned } = imp;
+  const remaining = dayQuestions.length + questions.length;
+  if (dayQuestions.length > 0) {
+    return <DayQuestion key={dayQuestions[0]} imp={imp} date={dayQuestions[0]} remaining={remaining} />;
+  }
   if (questions.length > 0) {
     // key: bij een nieuwe vraag begint het kaartje opnieuw (checkbox uit, zoekveld dicht)
-    return <Question key={questions[0].event.id} imp={imp} item={questions[0]} remaining={questions.length} />;
+    return <Question key={questions[0].event.id} imp={imp} item={questions[0]} remaining={remaining} />;
   }
   if (planned.length === 0) return null;
   return (

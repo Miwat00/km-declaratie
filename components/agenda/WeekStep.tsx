@@ -155,6 +155,8 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
           manualStops={manualStops.filter((m) => m.date === d)}
           selection={selection}
           onSelect={setSelection}
+          mode={imp.dayModes[d] ?? { place: "thuis", transport: "auto", chosen: false }}
+          onMode={(patch) => imp.setDayMode(d, patch)}
         />
       ))}
     </div>

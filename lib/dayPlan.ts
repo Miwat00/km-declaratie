@@ -15,7 +15,7 @@ export type EventDecision =
 
 export type EventStatus =
   | { kind: "linked"; location: Location; client: string; billable: boolean; source: "koppeling" | "kantoor" | "agenda" | "handmatig" }
-  | { kind: "skip"; reason: "online" | "hele dag" | "handmatig" | "onthouden" }
+  | { kind: "skip"; reason: "online" | "hele dag" | "handmatig" | "onthouden" | "ov" | "thuis" }
   | { kind: "todo" };
 
 export type PlannedEvent = { event: CalendarEvent; status: EventStatus };
@@ -49,6 +49,45 @@ export function eventStatus(
   if (!event.startTime) return { kind: "skip", reason: "hele dag" };
   if (geocoded) return { kind: "linked", location: geocoded, client: event.title, billable: true, source: "agenda" };
   return { kind: "todo" };
+}
+
+// ---------- dagmodus: waar werkte je en hoe reisde je ----------
+
+export type Place = "thuis" | "kantoor" | "pad";
+export type Transport = "auto" | "ov";
+/** place null = de app kan het niet raden en vraagt het per dag */
+export type DayMode = { place: Place | null; transport: Transport; chosen: boolean };
+
+/**
+ * Raadt waar je die dag werkte uit de afspraken:
+ * kantoor-afspraak → kantoor, bekende klant → op pad, alleen online of niets → thuis,
+ * afspraken zonder plek en verder niets → onbekend (dan vraagt de app het).
+ */
+export function inferPlace(statuses: EventStatus[]): Place | null {
+  if (statuses.some((s) => s.kind === "linked" && s.source === "kantoor")) return "kantoor";
+  if (statuses.some((s) => s.kind === "linked")) return "pad";
+  if (statuses.some((s) => s.kind === "todo")) return null;
+  return "thuis";
+}
+
+/**
+ * Past de dagmodus toe op een afspraak:
+ * met het OV levert niets een rit op; thuis worden afspraken zonder plek (en kantoor) "geen rit";
+ * op kantoor zijn afspraken zonder plek op kantoor. Op pad blijft alles zoals het is.
+ */
+export function applyDayMode(
+  status: EventStatus,
+  mode: DayMode,
+  settings: Pick<Settings, "office" | "companyName">
+): EventStatus {
+  if (mode.transport === "ov" && status.kind !== "skip") return { kind: "skip", reason: "ov" };
+  if (mode.place === "thuis") {
+    if (status.kind === "todo" || (status.kind === "linked" && status.source === "kantoor")) return { kind: "skip", reason: "thuis" };
+  }
+  if (mode.place === "kantoor" && status.kind === "todo" && settings.office) {
+    return { kind: "linked", location: settings.office, client: settings.companyName || "Kantoor", billable: false, source: "kantoor" };
+  }
+  return status;
 }
 
 /** Titels vergelijken zonder hoofdletters en dubbele spaties. */
@@ -159,7 +198,9 @@ export function planDay(
   overrides: Record<string, LegOverride>,
   existingTrips: Pick<Trip, "date" | "locationA" | "locationB">[],
   /** Waar de dag eindigt als dat niet thuis is (bijv. een ander adres na je laatste afspraak) */
-  endLocation: Location = home
+  endLocation: Location = home,
+  /** Kantoordag: ook zonder afspraak naar kantoor (9:00–17:00) */
+  officeDay?: { location: Location; client: string }
 ): Leg[] {
   const stops: Stop[] = [];
   for (const { event, status } of events) {
@@ -176,6 +217,12 @@ export function planDay(
     stops.push({
       location: m.location, start, end: start + MANUAL_STOP_MIN, purpose: m.purpose,
       client: m.client, billable: m.billable, manual: true,
+    });
+  }
+  if (officeDay && !stops.some((st) => sameLocation(st.location, officeDay.location))) {
+    stops.push({
+      location: officeDay.location, start: ALL_DAY_START, end: ALL_DAY_END, purpose: "Kantoordag",
+      client: officeDay.client, billable: false, manual: false,
     });
   }
   if (stops.length === 0) return [];

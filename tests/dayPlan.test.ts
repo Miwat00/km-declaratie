@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, defaultsFor, eventStatus, fromMin, legToTrip, mondayOf, pickStartWeek, planDay, rangeLabel, routeKey, toMin, weekLabel, weekSummary,
+  addDays, applyDayMode, defaultsFor, eventStatus, inferPlace, fromMin, legToTrip, mondayOf, pickStartWeek, planDay, rangeLabel, routeKey, toMin, weekLabel, weekSummary,
   type EventDecision, type ManualStop, type PlannedEvent, type RouteLookup,
 } from "@/lib/dayPlan";
 import type { CalendarEvent, ClientEntry, Location } from "@/lib/types";
@@ -176,5 +176,45 @@ describe("terugrit naar een ander adres", () => {
   it("standaard gaat de terugrit naar huis", () => {
     const legs = planDay(DATE, [plan(ev("Kantoordag", "09:00", "17:00"))], [], HOME, lookup, {}, []);
     expect(legs.at(-1)).toMatchObject({ isReturn: true, to: HOME });
+  });
+});
+
+describe("dagmodus", () => {
+  const st = (e: CalendarEvent) => plan(e).status;
+  const mode = (place: "thuis" | "kantoor" | "pad" | null, transport: "auto" | "ov" = "auto") => ({ place, transport, chosen: true });
+
+  it("raadt waar je werkte", () => {
+    expect(inferPlace([st(ev("Kantoordag", "09:00"))])).toBe("kantoor");
+    expect(inferPlace([st(ev("Workshop Acme", "13:00"))])).toBe("pad");
+    expect(inferPlace([st(ev("Sync", "09:00", "09:30", "Teams"))])).toBe("thuis");
+    expect(inferPlace([])).toBe("thuis");
+    expect(inferPlace([st(ev("Lunch", "12:00"))])).toBeNull();
+  });
+
+  it("met het OV levert niets een rit op", () => {
+    expect(applyDayMode(st(ev("Kantoordag", "09:00")), mode("kantoor", "ov"), settings)).toEqual({ kind: "skip", reason: "ov" });
+    expect(applyDayMode(st(ev("Lunch", "12:00")), mode("pad", "ov"), settings)).toEqual({ kind: "skip", reason: "ov" });
+  });
+
+  it("thuis: afspraken zonder plek en kantoor zijn geen rit, klanten wel", () => {
+    expect(applyDayMode(st(ev("Lunch", "12:00")), mode("thuis"), settings)).toEqual({ kind: "skip", reason: "thuis" });
+    expect(applyDayMode(st(ev("Kantoordag", "09:00")), mode("thuis"), settings)).toEqual({ kind: "skip", reason: "thuis" });
+    expect(applyDayMode(st(ev("Workshop Acme", "13:00")), mode("thuis"), settings)).toMatchObject({ kind: "linked", client: "Acme" });
+  });
+
+  it("kantoor: afspraken zonder plek zijn op kantoor", () => {
+    expect(applyDayMode(st(ev("Lunch", "12:00")), mode("kantoor"), settings)).toMatchObject({ kind: "linked", location: OFFICE, billable: false });
+  });
+
+  it("op pad blijft alles zoals het is", () => {
+    expect(applyDayMode(st(ev("Lunch", "12:00")), mode("pad"), settings)).toEqual({ kind: "todo" });
+  });
+
+  it("kantoordag zonder afspraak geeft toch thuis → kantoor → thuis, met klantbezoek ertussen", () => {
+    const office = { location: OFFICE, client: "Mijn Bedrijf" };
+    expect(planDay(DATE, [], [], HOME, lookup, {}, [], HOME, office).map((l) => `${l.from.shortName}→${l.to.shortName}`))
+      .toEqual(["Thuis→Kantoor", "Kantoor→Thuis"]);
+    const withClient = planDay(DATE, [plan(ev("Workshop Acme", "13:00", "15:00"))], [], HOME, lookup, {}, [], HOME, office);
+    expect(withClient.map((l) => `${l.from.shortName}→${l.to.shortName}`)).toEqual(["Thuis→Kantoor", "Kantoor→Klant", "Klant→Thuis"]); // na de klant naar huis; het eindadres is aan te passen
   });
 });

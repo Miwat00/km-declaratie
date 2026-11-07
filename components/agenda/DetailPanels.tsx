@@ -116,9 +116,13 @@ export function EventPanel({ imp, item }: { imp: AgendaImport; item: PlannedEven
             {status.reason === "online" ? "Online afspraak, dus geen rit."
               : status.reason === "hele dag" ? "Hele-dag-afspraak zonder plek, dus geen rit."
               : status.reason === "onthouden" ? "Je hebt eerder gezegd: voortaan geen rit voor deze afspraak."
+              : status.reason === "ov" ? "Deze dag reisde je met het OV, dus geen rit. Zet de dag op Auto als je toch met de auto ging."
+              : status.reason === "thuis" ? "Deze dag werkte je thuis, dus geen rit."
               : "Je hebt aangegeven dat dit geen rit is."}
           </p>
-          <button type="button" className={btn} onClick={() => setEditing(true)}>Toch een rit</button>
+          {status.reason !== "ov" && (
+            <button type="button" className={btn} onClick={() => setEditing(true)}>Toch een rit</button>
+          )}
         </>
       )}
 

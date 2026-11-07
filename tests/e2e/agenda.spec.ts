@@ -30,6 +30,13 @@ async function openWeek(page: Page, ics = ICS) {
   await expect(page.getByRole("heading", { name: /^Deze week · 2 – 6 nov/ })).toBeVisible();
 }
 
+/** Donderdag heeft alleen een afspraak zonder plek: eerst vraagt de app hoe die dag eruitzag. */
+async function answerDay(page: Page, heading: string, answer: RegExp) {
+  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  await page.getByRole("button", { name: answer }).click();
+}
+const goneOutThursday = (page: Page) => answerDay(page, "Hoe zag donderdag 5 nov eruit?", /^Op pad, met de auto/);
+
 /** Ritregel in een dag; de naam bevat "Rit", de afstand en "<van> → <naar>". */
 const leg = (page: Page, from: string, to: string) =>
   page.getByRole("button", { name: new RegExp(`^Rit .*${from} → ${to}`) });
@@ -43,6 +50,7 @@ async function closeSheet(page: Page) {
 
 test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declaratie zetten", async ({ page }) => {
   await openWeek(page);
+  await goneOutThursday(page);
 
   // Kantoor via het trefwoord, met ritten ervoor en erna; Teams levert geen rit op
   await expect(leg(page, home, office)).toContainText(nl(fakeRouteKm(ADDRESSES.home, ADDRESSES.office)));
@@ -92,6 +100,7 @@ test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declarati
 
 test("'geen rit' kun je ongedaan maken en voortaan onthouden", async ({ page }) => {
   await openWeek(page);
+  await goneOutThursday(page);
   await page.getByLabel("Voortaan automatisch voor “Lunch met Jan”").check();
   await page.getByRole("button", { name: /^Geen rit/ }).click();
   const toast = page.getByRole("status").filter({ hasText: "Lunch met Jan: geen rit, ook voortaan" });
@@ -147,6 +156,7 @@ test("een rit uitzetten en een afspraak overslaan telt niet mee", async ({ page 
 
 test("zonder 'voortaan automatisch' wordt een antwoord niet onthouden", async ({ page }) => {
   await openWeek(page);
+  await goneOutThursday(page);
   await page.getByRole("button", { name: /^Geen rit/ }).click();
   const toast = page.getByRole("status").filter({ hasText: "Lunch met Jan: geen rit" });
   await expect(toast).toBeVisible();
@@ -174,4 +184,34 @@ test("de terugrit van een dag naar een ander adres laten gaan", async ({ page })
   await page.getByRole("button", { name: "Terug naar huis" }).click();
   await closeSheet(page);
   await expect(leg(page, office, home)).toBeVisible();
+});
+
+test("per dag: thuis gewerkt beantwoordt alle afspraken van die dag", async ({ page }) => {
+  await openWeek(page);
+  await answerDay(page, "Hoe zag donderdag 5 nov eruit?", /^Thuis gewerkt/);
+  await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^12:00 Lunch met Jan Thuis/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Waar werkte je op do 5" }).getByRole("button", { name: "Thuis" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("per dag: met het OV naar kantoor levert geen ritten op", async ({ page }) => {
+  await openWeek(page);
+  await expect(page.getByRole("group", { name: "Waar werkte je op ma 2" }).getByRole("button", { name: "Kantoor" })).toHaveAttribute("aria-pressed", "true");
+  await expect(leg(page, home, office)).toHaveCount(1);
+
+  await page.getByRole("group", { name: "Hoe reisde je op ma 2" }).getByRole("button", { name: "OV" }).click();
+  await expect(leg(page, home, office)).toHaveCount(0);
+  await expect(page.getByText("Met het OV: geen ritten deze dag.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^09:00 Kantoordag OV/ })).toBeVisible();
+
+  // Ongedaan maken zet de auto terug
+  await page.getByRole("status").getByRole("button", { name: "Ongedaan maken" }).click();
+  await expect(leg(page, home, office)).toHaveCount(1);
+});
+
+test("per dag: een dag zonder afspraken op kantoor zetten geeft toch een rit", async ({ page }) => {
+  await openWeek(page);
+  await page.getByRole("group", { name: "Waar werkte je op vr 6" }).getByRole("button", { name: "Kantoor" }).click();
+  await expect(leg(page, home, office)).toHaveCount(2); // maandag en vrijdag
+  await expect(leg(page, office, home)).toHaveCount(2);
 });

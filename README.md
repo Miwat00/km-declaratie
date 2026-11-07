@@ -25,7 +25,8 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 - **Meerdere mensen op één apparaat**: de naam staat per rit in het formulier; zodra een maand meer namen heeft, toont de lijst wie er reed
 - **Ritten uit je agenda** via een geplakte agenda-link (Outlook, Google Agenda, iCloud) of een `.ics`-bestand:
   - met een onthouden link opent de app direct op de week die je nog moet declareren
-  - afspraken waarvan de plek onbekend is, stelt de app als vraag ("Waar was “Lunch met Jan”?") met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" onthoudt het antwoord, en elke keuze is ongedaan te maken
+  - per dag kies je waar je werkte (thuis, kantoor, op pad) en hoe je reisde (auto, OV); de app raadt dit vaak al uit je afspraken. OV- en thuiswerkdagen geven geen ritten, een kantoordag geeft thuis → kantoor → thuis, ook zonder afspraak
+  - alleen op pad-dagen vraagt de app nog per afspraak waar die was, met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" (standaard uit) onthoudt het antwoord, en elke keuze is ongedaan te maken
   - per dag een ritketen thuis → afspraak → afspraak → thuis, met de afstand tussen de afspraken; dagen krijgen een vinkje als ze klaar zijn
   - zelf een tussenstop toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
   - herkent terugkerende, verplaatste, geannuleerde en online afspraken (Teams/Zoom) en zoekt adressen uit het locatieveld op

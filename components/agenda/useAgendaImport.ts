@@ -4,9 +4,10 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { parseIcs } from "@/lib/ics";
 import { geocodeEventLocation } from "@/lib/tripGenerator";
 import {
-  addDays, countedLegs, defaultsFor, eventStatus, legToTrip, mondayOf, normalizeTitle, pickStartWeek, planDay,
-  routeKey, weekDays, weekSummary,
-  type EventDecision, type LegOverride, type ManualStop, type PlannedEvent, type RouteInfo, type RouteLookup,
+  addDays, applyDayMode, countedLegs, defaultsFor, eventStatus, inferPlace, legToTrip, mondayOf, normalizeTitle,
+  pickStartWeek, planDay, routeKey, weekDays, weekSummary,
+  type DayMode, type EventDecision, type LegOverride, type ManualStop, type Place, type PlannedEvent, type RouteInfo,
+  type RouteLookup, type Transport,
 } from "@/lib/dayPlan";
 import {
   loadTrips, saveTrips, loadRate, loadHomeAddress, saveHomeAddress, loadClientDirectory, saveClientDirectory, loadSettings,
@@ -80,6 +81,8 @@ export function useAgendaImport() {
   const [manualStops, setManualStops] = useState<ManualStop[]>([]);
   /** Per dag: waar de laatste rit naartoe gaat als dat niet thuis is */
   const [dayEnds, setDayEnds] = useState<Record<string, Location>>({});
+  /** Per dag: waar je werkte en hoe je reisde, als je dat zelf koos */
+  const [dayChoices, setDayChoices] = useState<Record<string, { place?: Place; transport?: Transport }>>({});
   const [legOverrides, setLegOverrides] = useState<Record<string, LegOverride>>({});
   const [selection, setSelection] = useState<Selection>(null);
   const [lastAction, setLastAction] = useState<LastAction | null>(null);
@@ -113,6 +116,7 @@ export function useAgendaImport() {
     setDecisions({});
     setManualStops([]);
     setDayEnds({});
+    setDayChoices({});
     setLegOverrides({});
     setSelection(null);
     setLastAction(null);
@@ -220,7 +224,8 @@ export function useAgendaImport() {
     return busy.has(allDays[5]) || busy.has(allDays[6]) ? allDays : allDays.slice(0, 5);
   }, [allDays, weekEvents, manualStops]);
 
-  const planned: PlannedEvent[] = useMemo(
+  // Eerst wat de afspraak zelf zegt (koppeling, kantoor, online…), dan wat de dag zegt (thuis, kantoor, OV)
+  const basePlanned: PlannedEvent[] = useMemo(
     () =>
       weekEvents.map((event) => ({
         event,
@@ -232,23 +237,53 @@ export function useAgendaImport() {
     [weekEvents, decisions, directory, settings, geocoded, skipTitles]
   );
 
+  const dayModes: Record<string, DayMode> = useMemo(() => {
+    const out: Record<string, DayMode> = {};
+    for (const d of days) {
+      const chosen = dayChoices[d] ?? {};
+      const inferred = inferPlace(basePlanned.filter((p) => p.event.date === d).map((p) => p.status));
+      out[d] = { place: chosen.place ?? inferred, transport: chosen.transport ?? "auto", chosen: !!chosen.place };
+    }
+    return out;
+  }, [days, dayChoices, basePlanned]);
+
+  const planned: PlannedEvent[] = useMemo(
+    () =>
+      basePlanned.map((p) => {
+        const mode = dayModes[p.event.date];
+        return mode ? { ...p, status: applyDayMode(p.status, mode, settings) } : p;
+      }),
+    [basePlanned, dayModes, settings]
+  );
+
   const legs = useMemo(() => {
     if (!homeAddress) return [];
     const lookup: RouteLookup = (a, b) => routes[routeKey(a, b)] ?? "loading";
-    return days.flatMap((d) =>
-      planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips, dayEnds[d] ?? homeAddress)
-    );
-  }, [days, planned, manualStops, homeAddress, routes, legOverrides, existingTrips, dayEnds]);
+    return days.flatMap((d) => {
+      const mode = dayModes[d];
+      const officeDay =
+        mode?.place === "kantoor" && mode.transport === "auto" && settings.office
+          ? { location: settings.office, client: settings.companyName || "Kantoor" }
+          : undefined;
+      return planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips, dayEnds[d] ?? homeAddress, officeDay);
+    });
+  }, [days, dayModes, planned, manualStops, homeAddress, routes, legOverrides, existingTrips, dayEnds, settings]);
 
   const summary = useMemo(() => weekSummary(legs), [legs]);
 
-  /** Afspraken waarvan we niet weten waar ze waren, in volgorde van de week. */
+  /** Dagen waarvan de app niet kan raden waar je werkte: die vraagt hij eerst, per dag. */
+  const dayQuestions = useMemo(
+    () => days.filter((d) => dayModes[d]?.place === null && dayModes[d]?.transport === "auto"),
+    [days, dayModes]
+  );
+
+  /** Daarna alleen nog afspraken op "op pad"-dagen waarvan de plek onbekend is. */
   const questions = useMemo(
     () =>
       planned
-        .filter((p) => p.status.kind === "todo")
+        .filter((p) => p.status.kind === "todo" && dayModes[p.event.date]?.place === "pad")
         .sort((a, b) => (a.event.date + (a.event.startTime ?? "")).localeCompare(b.event.date + (b.event.startTime ?? ""))),
-    [planned]
+    [planned, dayModes]
   );
 
   // Routes ophalen voor ritten in deze week (één voor één, de OSRM-demoserver is gratis)
@@ -270,9 +305,10 @@ export function useAgendaImport() {
     })();
   }, [legs]);
 
-  // Locatievelden uit de agenda opzoeken voor afspraken die nog een vraag zijn
+  // Locatievelden uit de agenda opzoeken voor afspraken zonder bekende plek (helpt ook de dag te raden)
   useEffect(() => {
-    const queries = questions
+    const queries = basePlanned
+      .filter((p) => p.status.kind === "todo")
       .map((p) => p.event.location)
       .filter((q): q is string => !!q && !(q in geocoded) && !pendingGeocodes.current.has(q));
     if (queries.length === 0) return;
@@ -283,7 +319,7 @@ export function useAgendaImport() {
         setGeocoded((prev) => ({ ...prev, [q]: loc }));
       }
     })();
-  }, [questions, geocoded]);
+  }, [basePlanned, geocoded]);
 
   // ---------- acties ----------
   function goToWeek(monday: string) {
@@ -372,6 +408,30 @@ export function useAgendaImport() {
       message: `Tussenstop ${stop.purpose} toegevoegd`,
       undo: () => {
         setManualStops((prev) => prev.filter((m) => m.id !== id));
+        setLastAction(null);
+      },
+    });
+  }
+
+  const PLACE_LABEL: Record<Place, string> = { thuis: "thuis", kantoor: "op kantoor", pad: "op pad" };
+
+  /** Waar je werkte en/of hoe je reisde op een dag. */
+  function setDayMode(date: string, patch: { place?: Place; transport?: Transport }) {
+    const previous = dayChoices[date];
+    setDayChoices((prev) => ({ ...prev, [date]: { ...prev[date], ...patch } }));
+    setSelection(null);
+    const [, m, d] = date.split("-").map(Number);
+    const parts = [patch.place ? PLACE_LABEL[patch.place] : null, patch.transport ? (patch.transport === "ov" ? "met het OV" : "met de auto") : null];
+    setLastAction({
+      id: ++actionId.current,
+      message: `${d}-${m}: ${parts.filter(Boolean).join(", ")}`,
+      undo: () => {
+        setDayChoices((prev) => {
+          const next = { ...prev };
+          if (previous) next[date] = previous;
+          else delete next[date];
+          return next;
+        });
         setLastAction(null);
       },
     });
@@ -470,6 +530,9 @@ export function useAgendaImport() {
     days,
     planned,
     legs,
+    dayModes,
+    dayQuestions,
+    setDayMode,
     manualStops,
     summary,
     questions,

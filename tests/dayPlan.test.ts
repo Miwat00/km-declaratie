@@ -179,6 +179,20 @@ describe("terugrit naar een ander adres", () => {
   });
 });
 
+describe("vertrek vanaf een ander adres", () => {
+  it("laat de dag beginnen op het opgegeven adres", () => {
+    const legs = planDay(DATE, [plan(ev("Kantoordag", "09:00", "17:00"))], [], HOME, lookup, {}, [], HOME, undefined, POMP);
+    expect(legs.map((l) => `${l.from.shortName}→${l.to.shortName}${l.isFirst ? " (eerste)" : ""}`)).toEqual([
+      "Tankstation→Kantoor (eerste)", "Kantoor→Thuis",
+    ]);
+  });
+  it("standaard vertrek je vanaf huis, en alleen de eerste rit is de eerste", () => {
+    const legs = planDay(DATE, [plan(ev("Kantoor", "09:00", "12:00")), plan(ev("Workshop Acme", "13:00", "16:00"))], [], HOME, lookup, {}, []);
+    expect(legs.filter((l) => l.isFirst)).toHaveLength(1);
+    expect(legs[0]).toMatchObject({ isFirst: true, from: HOME });
+  });
+});
+
 describe("dagmodus", () => {
   const st = (e: CalendarEvent) => plan(e).status;
   const mode = (place: "thuis" | "kantoor" | "pad" | null, transport: "auto" | "ov" = "auto") => ({ place, transport, chosen: true });

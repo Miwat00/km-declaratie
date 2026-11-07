@@ -119,7 +119,7 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
   const {
     days, weekStart, planned, legs, manualStops, selection, setSelection, prevWeek, nextWeek, homeAddress, setStep,
     hasSavedUrl, fetchedAt, refresh, autoFetching, showWeekend, setShowWeekend, weekendInfo, resetWeek,
-    previousWeek, copyPreviousWeek, dayModes, setDayMode, questions, dayQuestions,
+    previousWeek, copyPreviousWeek, dayModes, setDayMode, questions, dayQuestions, dayStarts, dayEnds, setDayStart, setDayEnd,
   } = imp;
   const isDesktop = useIsDesktop();
   const today = todayLocal();
@@ -208,6 +208,10 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
             onSelect={setSelection}
             mode={dayModes[d] ?? { place: "thuis", transport: "auto", chosen: false }}
             onMode={(patch) => setDayMode(d, patch)}
+            start={dayStarts[d] ?? null}
+            end={dayEnds[d] ?? null}
+            onResetStart={() => setDayStart(d, null)}
+            onResetEnd={() => setDayEnd(d, null)}
           />
         ))}
       </div>

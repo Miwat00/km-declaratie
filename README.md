@@ -30,6 +30,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
   - de week toont ma–vr in kolommen; het weekend staat uit tot je het nodig hebt, en een drukke kantoordag of OV-dag klapt in tot één blok
   - alleen op pad-dagen vraagt de app nog per afspraak waar die was, met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" (standaard uit) onthoudt het antwoord, en elke keuze is ongedaan te maken
   - per dag een ritketen thuis → afspraak → afspraak → thuis, met de afstand tussen de afspraken; dagen krijgen een vinkje als ze klaar zijn
+  - de dag hoeft niet thuis te beginnen of te eindigen: klik op de eerste of laatste rit en kies een ander vertrek- of eindadres
   - zelf een tussenstop toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
   - herkent terugkerende, verplaatste, geannuleerde en online afspraken (Teams/Zoom) en zoekt adressen uit het locatieveld op
   - ritten die al in je declaratie staan worden niet dubbel toegevoegd

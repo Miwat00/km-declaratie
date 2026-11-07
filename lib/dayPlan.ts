@@ -168,6 +168,8 @@ export type Leg = {
   manual: boolean;
   /** Laatste rit van de dag: standaard naar huis, maar het eindpunt is aan te passen */
   isReturn: boolean;
+  /** Eerste rit van de dag: standaard vanaf huis, maar het vertrekpunt is aan te passen */
+  isFirst: boolean;
   departMin: number;
   arriveMin: number;
   /** Afstand die gedeclareerd wordt (eigen invoer of route) */
@@ -200,7 +202,9 @@ export function planDay(
   /** Waar de dag eindigt als dat niet thuis is (bijv. een ander adres na je laatste afspraak) */
   endLocation: Location = home,
   /** Kantoordag: ook zonder afspraak naar kantoor (9:00–17:00) */
-  officeDay?: { location: Location; client: string }
+  officeDay?: { location: Location; client: string },
+  /** Waar de dag begint als dat niet thuis is (bijv. vanaf een ander adres) */
+  startLocation: Location = home
 ): Leg[] {
   const stops: Stop[] = [];
   for (const { event, status } of events) {
@@ -230,7 +234,7 @@ export function planDay(
 
   const legs: Leg[] = [];
   const seen = new Map<string, number>();
-  const addLeg = (from: Location, to: Location, dest: Stop, toHome: boolean, prevEnd: number) => {
+  const addLeg = (from: Location, to: Location, dest: Stop, toHome: boolean, prevEnd: number, isFirst = false) => {
     if (sameLocation(from, to)) return;
     const route = lookup(from, to);
     const info = typeof route === "object" ? route : null;
@@ -246,7 +250,7 @@ export function planDay(
     const o = overrides[key] ?? {};
     legs.push({
       key, date, from, to,
-      purpose: dest.purpose, client: dest.client, billable: dest.billable, manual: !toHome && dest.manual, isReturn: toHome,
+      purpose: dest.purpose, client: dest.client, billable: dest.billable, manual: !toHome && dest.manual, isReturn: toHome, isFirst,
       departMin, arriveMin,
       km: o.km ?? info?.km ?? null,
       routeKm: info?.km ?? null,
@@ -258,10 +262,10 @@ export function planDay(
     });
   };
 
-  let current = home;
+  let current = startLocation;
   let lastEnd = 0;
-  for (const stop of stops) {
-    addLeg(current, stop.location, stop, false, lastEnd);
+  for (const [i, stop] of stops.entries()) {
+    addLeg(current, stop.location, stop, false, lastEnd, i === 0);
     current = stop.location;
     lastEnd = Math.max(lastEnd, stop.end);
   }

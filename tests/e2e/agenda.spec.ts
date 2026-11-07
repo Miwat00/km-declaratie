@@ -16,16 +16,17 @@ const ICS = [
   "END:VCALENDAR",
 ].join("\r\n");
 
+const CRLF = String.fromCharCode(13, 10);
 const nl = (n: number) => n.toFixed(1).replace(".", ",");
 const first = (a: (typeof ADDRESSES)[keyof typeof ADDRESSES]) => shortName(a).split(",")[0];
 const home = first(ADDRESSES.home);
 const office = first(ADDRESSES.office);
 const client = first(ADDRESSES.client);
 
-async function openWeek(page: Page, ics = ICS) {
+async function openWeek(page: Page, ics = ICS, data = DEFAULT_SEED) {
   // Woensdag 4 november: de app opent op deze week (vorige week heeft geen afspraken)
   await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
-  await seed(page, DEFAULT_SEED, "/agenda");
+  await seed(page, data, "/agenda");
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ics) });
   await expect(page.getByRole("heading", { name: /^Deze week · 2 – 6 nov/ })).toBeVisible();
 }
@@ -183,7 +184,7 @@ test("de terugrit van een dag naar een ander adres laten gaan", async ({ page })
 
   // En weer terugzetten
   await leg(page, office, client).click();
-  await page.getByRole("button", { name: "Terug naar huis" }).click();
+  await page.getByRole("button", { name: "Terug naar huis", exact: true }).click();
   await closeSheet(page);
   await expect(leg(page, office, home)).toBeVisible();
 });
@@ -261,4 +262,52 @@ test("dagkeuzes blijven bewaard en kun je volgende week overnemen", async ({ pag
   await page.reload();
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ICS) });
   await expect(page.getByRole("group", { name: "Hoe reisde je op ma 2" }).getByRole("button", { name: "OV" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("de eerste rit van een dag vanaf een ander adres laten vertrekken", async ({ page }) => {
+  await openWeek(page);
+  await leg(page, home, office).click();
+  const panel = page.getByRole("region", { name: new RegExp(`^Rit ${home}.* naar ${office}`) });
+  await expect(panel.getByText("Vertrek vanaf: Thuis")).toBeVisible();
+  await panel.getByRole("button", { name: "Ander adres" }).click();
+  await panel.getByRole("combobox", { name: "Vertrek vanaf" }).fill("Jaarbeursplein 6");
+  await panel.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
+  await closeSheet(page);
+
+  // Maandag begint nu in Utrecht; de terugrit gaat nog gewoon naar huis
+  await expect(leg(page, client, office)).toBeVisible();
+  await expect(leg(page, home, office)).toHaveCount(0);
+  await expect(leg(page, office, home)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Vertrek vanaf ${shortName(ADDRESSES.client)}` })).toBeVisible();
+
+  // In de dag zie je waar je vertrok, en met het kruisje vertrek je weer thuis
+  await expect(page.getByRole("region", { name: "ma 2 nov" }).getByText(`Vertrek vanaf ${client}`)).toBeVisible();
+  await page.getByRole("button", { name: "Vertrek weer vanaf huis op ma 2" }).click();
+  await expect(leg(page, home, office)).toBeVisible();
+});
+
+test("dagvraag: alle combinaties, en één antwoord voor alle open dagen", async ({ page }) => {
+  const friday = ["BEGIN:VEVENT", "UID:overleg", "SUMMARY:Overleg", "DTSTART;TZID=W. Europe Standard Time:20261106T100000", "DTEND;TZID=W. Europe Standard Time:20261106T110000", "END:VEVENT"].join(CRLF);
+  await openWeek(page, ICS.replace("END:VCALENDAR", `${friday}${CRLF}END:VCALENDAR`));
+  await expect(page.getByRole("heading", { name: "Hoe zag donderdag 5 nov eruit?" })).toBeVisible();
+  for (const a of ["Thuis gewerkt", "Kantoor, met de auto", "Kantoor, met het OV", "Op pad, met de auto", "Op pad, met het OV"]) {
+    await expect(page.getByRole("button", { name: new RegExp(`^${a}`) })).toBeVisible();
+  }
+  await page.getByLabel("Ook voor de andere open dag deze week").check();
+  await page.getByRole("button", { name: /^Op pad, met het OV/ }).click();
+  await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
+  for (const d of ["do 5", "vr 6"]) {
+    await expect(page.getByRole("group", { name: `Hoe reisde je op ${d}` }).getByRole("button", { name: "OV" })).toHaveAttribute("aria-pressed", "true");
+  }
+});
+
+test("dagvraag: zonder kantooradres vraagt de app er eerst naar", async ({ page }) => {
+  await openWeek(page, ICS, { ...DEFAULT_SEED, settings: { ...DEFAULT_SEED.settings!, office: null } });
+  await expect(page.getByRole("heading", { name: /^Hoe zag .* eruit\?/ }).first()).toBeVisible();
+  await page.getByRole("button", { name: /^Kantoor, met de auto/ }).click();
+  await page.getByRole("combobox", { name: "Waar is je kantoor?" }).fill("Coolsingel 40");
+  await page.getByRole("option", { name: new RegExp(shortName(ADDRESSES.office)) }).click();
+  await expect(leg(page, home, office).first()).toBeVisible();
+  const settings = JSON.parse(await page.evaluate(() => localStorage.getItem("kilometer_settings") ?? "{}"));
+  expect(settings.office?.shortName).toBe(shortName(ADDRESSES.office));
 });

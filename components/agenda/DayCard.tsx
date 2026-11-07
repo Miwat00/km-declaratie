@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { eventSpan, fromMin, toMin, type DayMode, type Leg, type ManualStop, type Place, type PlannedEvent, type Transport } from "@/lib/dayPlan";
 import { formatKm } from "@/lib/format";
+import type { Location } from "@/lib/types";
 import type { Selection } from "./useAgendaImport";
 
 const WEEKDAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
@@ -25,7 +26,26 @@ type Props = {
   onSelect: (s: Selection) => void;
   mode: DayMode;
   onMode: (patch: { place?: Place; transport?: Transport }) => void;
+  /** Ander vertrek- of eindadres dan thuis (null = thuis) */
+  start: Location | null;
+  end: Location | null;
+  onResetStart: () => void;
+  onResetEnd: () => void;
 };
+
+/** Klein regeltje als de dag niet thuis begint of eindigt, met een kruisje om het terug te zetten. */
+function Endpoint({ text, location, resetLabel, onReset }: { text: string; location: Location; resetLabel: string; onReset: () => void }) {
+  return (
+    <p className="flex items-center gap-1 text-xs text-gray-700 px-0.5">
+      <span className="truncate">{text} <span className="font-medium">{location.shortName.split(",")[0]}</span></span>
+      <button type="button" onClick={onReset} aria-label={resetLabel} title={resetLabel} className={`ml-auto flex-shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 ${focus}`}>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </p>
+  );
+}
 
 type Entry =
   | { kind: "event"; at: number; item: PlannedEvent }
@@ -67,7 +87,7 @@ function subText(p: PlannedEvent): string {
 }
 
 /** Eén werkdag: de twee dagkeuzes, ritten met hun afstand, en afspraken zonder eigen rit gebundeld. */
-export default function DayCard({ date, planned, legs, manualStops, selection, onSelect, mode, onMode }: Props) {
+export default function DayCard({ date, planned, legs, manualStops, selection, onSelect, mode, onMode, start, end, onResetStart, onResetEnd }: Props) {
   const { weekday, day, month } = dayParts(date);
   const dayName = `${weekday} ${day}`;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -212,6 +232,8 @@ export default function DayCard({ date, planned, legs, manualStops, selection, o
         />
       </div>
 
+      {start && <Endpoint text="Vertrek vanaf" location={start} resetLabel={`Vertrek weer vanaf huis op ${dayName}`} onReset={onResetStart} />}
+
       {planned.length === 0 && entries.length === 0 ? (
         <p className="text-xs text-gray-600 px-0.5">Geen afspraken</p>
       ) : quietDay ? (
@@ -250,6 +272,8 @@ export default function DayCard({ date, planned, legs, manualStops, selection, o
           })}
         </div>
       )}
+
+      {end && <Endpoint text="Eindigt bij" location={end} resetLabel={`Weer terug naar huis op ${dayName}`} onReset={onResetEnd} />}
 
       <button type="button" onClick={() => onSelect({ type: "add", date })} className={`text-xs text-blue-700 hover:bg-blue-50 rounded px-1 py-0.5 ${focus}`}>
         + Tussenstop<span className="sr-only"> toevoegen op {weekday} {day}</span>

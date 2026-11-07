@@ -102,38 +102,84 @@ function Question({ imp, item, remaining }: { imp: AgendaImport; item: PlannedEv
   );
 }
 
+type DayAnswer = { text: string; sub: string; icon: string; place: "thuis" | "kantoor" | "pad"; transport: "auto" | "ov" };
+const DAY_ANSWERS: DayAnswer[] = [
+  { text: "Thuis gewerkt", sub: "geen ritten", icon: HOME_ICON, place: "thuis", transport: "auto" },
+  { text: "Kantoor, met de auto", sub: "thuis → kantoor → thuis", icon: ICONS.office, place: "kantoor", transport: "auto" },
+  { text: "Kantoor, met het OV", sub: "geen ritten", icon: TRAIN_ICON, place: "kantoor", transport: "ov" },
+  { text: "Op pad, met de auto", sub: "per afspraak de plek kiezen", icon: CAR_ICON, place: "pad", transport: "auto" },
+  { text: "Op pad, met het OV", sub: "geen ritten", icon: TRAIN_ICON, place: "pad", transport: "ov" },
+];
+
 /** Per dag: "Hoe zag dinsdag eruit?" Eén antwoord regelt alle afspraken van die dag. */
 function DayQuestion({ imp, date, remaining }: { imp: AgendaImport; date: string; remaining: number }) {
-  const { planned, setDayMode, settings } = imp;
-  const titles = planned.filter((p) => p.event.date === date).map((p) => p.event.title);
-  const answers: { text: string; sub: string; icon: string; place: "thuis" | "kantoor" | "pad"; transport: "auto" | "ov" }[] = [
-    { text: "Thuis gewerkt", sub: "geen ritten", icon: HOME_ICON, place: "thuis", transport: "auto" },
-    ...(settings.office
-      ? [
-          { text: "Op kantoor, met de auto", sub: "thuis → kantoor → thuis", icon: ICONS.office, place: "kantoor" as const, transport: "auto" as const },
-          { text: "Op kantoor, met het OV", sub: "geen ritten", icon: TRAIN_ICON, place: "kantoor" as const, transport: "ov" as const },
-        ]
-      : []),
-    { text: "Op pad, met de auto", sub: "per afspraak de plek kiezen", icon: CAR_ICON, place: "pad", transport: "auto" },
-  ];
+  const { planned, setDayMode, settings, saveOffice, homeAddress, dayQuestions } = imp;
+  const [allOpen, setAllOpen] = useState(false);
+  const [needOffice, setNeedOffice] = useState<DayAnswer | null>(null);
+  const items = planned.filter((p) => p.event.date === date);
+  const others = dayQuestions.length - 1;
+  const targets = allOpen ? dayQuestions : [date];
+
+  const pick = (a: DayAnswer) => {
+    if (a.place === "kantoor" && !settings.office) return setNeedOffice(a);
+    setDayMode(targets, { place: a.place, transport: a.transport });
+  };
+
   return (
     <section aria-labelledby="question-title" className="space-y-3">
       <p className="text-sm text-gray-600">
         {remaining === 1 ? "Nog 1 vraag, daarna is je week klaar" : `Nog ${remaining} vragen, daarna is je week klaar`}
       </p>
-      <div>
+      <div className="space-y-1.5">
         <h2 id="question-title" className="text-base font-semibold text-gray-900">Hoe zag {longDate(date).toLowerCase()} eruit?</h2>
-        <p className="text-sm text-gray-600 truncate">In je agenda: {titles.join(", ")}</p>
+        <ul className="flex flex-wrap gap-1.5" aria-label="In je agenda">
+          {items.slice(0, 5).map((p) => (
+            <li key={p.event.id} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-800 max-w-[16rem] truncate">
+              {p.event.startTime ? `${fromMin(eventSpan(p.event).start)} ` : ""}{p.event.title}
+            </li>
+          ))}
+          {items.length > 5 && <li className="px-1 py-0.5 text-xs text-gray-600">+{items.length - 5} meer</li>}
+        </ul>
       </div>
-      <div className="grid gap-2">
-        {answers.map((a) => (
-          <button key={a.text} type="button" className={answerClass} onClick={() => setDayMode(date, { place: a.place, transport: a.transport })}>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {DAY_ANSWERS.map((a) => (
+          <button
+            key={a.text}
+            type="button"
+            aria-pressed={needOffice?.text === a.text ? true : undefined}
+            className={`${answerClass} lg:flex-col lg:items-start lg:gap-1 ${needOffice?.text === a.text ? "border-blue-400 bg-blue-50" : ""}`}
+            onClick={() => pick(a)}
+          >
             <Icon d={a.icon} />
-            {a.text}
-            <span className="ml-auto text-xs text-gray-500 text-right">{a.sub}</span>
+            <span className="font-medium">{a.text}</span>
+            <span className="ml-auto lg:ml-0 text-xs text-gray-500">{a.sub}</span>
           </button>
         ))}
       </div>
+
+      {needOffice && (
+        <div className="rounded-lg border border-blue-300 bg-white p-3 space-y-1">
+          <LocationInput
+            label="Waar is je kantoor?"
+            value={null}
+            onChange={(loc) => {
+              if (!loc) return;
+              saveOffice(loc);
+              setDayMode(targets, { place: "kantoor", transport: needOffice.transport });
+            }}
+            homeAddress={homeAddress}
+          />
+          <p className="text-xs text-gray-600">De app onthoudt dit, ook voor de knop &ldquo;Kantoor&rdquo; bij een nieuwe rit.</p>
+        </div>
+      )}
+
+      {others > 0 && (
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={allOpen} onChange={(e) => setAllOpen(e.target.checked)} className="w-4 h-4 rounded border-gray-300" />
+          Ook voor de {others === 1 ? "andere open dag" : `andere ${others} open dagen`} deze week
+        </label>
+      )}
     </section>
   );
 }

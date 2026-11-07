@@ -84,6 +84,7 @@ export function useAgendaImport() {
   const [manualStops, setManualStops] = useState<ManualStop[]>([]);
   /** Per dag: waar de laatste rit naartoe gaat als dat niet thuis is */
   const [dayEnds, setDayEnds] = useState<Record<string, Location>>({});
+  const [dayStarts, setDayStarts] = useState<Record<string, Location>>({});
   /** Per dag: waar je werkte en hoe je reisde, als je dat zelf koos */
   const [dayChoices, setDayChoicesState] = useState<Record<string, { place?: Place; transport?: Transport }>>({});
   const [showWeekend, setShowWeekend] = useState(false);
@@ -127,6 +128,7 @@ export function useAgendaImport() {
     setDecisions({});
     setManualStops([]);
     setDayEnds({});
+    setDayStarts({});
     setLegOverrides({});
     setSelection(null);
     setLastAction(null);
@@ -279,9 +281,9 @@ export function useAgendaImport() {
         mode?.place === "kantoor" && mode.transport === "auto" && settings.office
           ? { location: settings.office, client: settings.companyName || "Kantoor" }
           : undefined;
-      return planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips, dayEnds[d] ?? homeAddress, officeDay);
+      return planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips, dayEnds[d] ?? homeAddress, officeDay, dayStarts[d] ?? homeAddress);
     });
-  }, [days, dayModes, planned, manualStops, homeAddress, routes, legOverrides, existingTrips, dayEnds, settings]);
+  }, [days, dayModes, planned, manualStops, homeAddress, routes, legOverrides, existingTrips, dayEnds, dayStarts, settings]);
 
   const summary = useMemo(() => weekSummary(legs), [legs]);
 
@@ -428,12 +430,20 @@ export function useAgendaImport() {
   }
 
 
-  /** Waar je werkte en/of hoe je reisde op een dag. */
-  function setDayMode(date: string, patch: { place?: Place; transport?: Transport }) {
-    const previous = dayChoices[date];
-    setDayChoices((prev) => ({ ...prev, [date]: { ...prev[date], ...patch } }));
+  /** Waar je werkte en/of hoe je reisde op een dag (of op meerdere dagen tegelijk). */
+  function setDayMode(dates: string | string[], patch: { place?: Place; transport?: Transport }) {
+    const list = Array.isArray(dates) ? dates : [dates];
+    const previous = Object.fromEntries(list.map((d) => [d, dayChoices[d]]));
+    setDayChoices((prev) => {
+      const next = { ...prev };
+      for (const d of list) next[d] = { ...prev[d], ...patch };
+      return next;
+    });
     setSelection(null);
-    const dayLabel = new Date(`${date}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
+    const dayLabel =
+      list.length === 1
+        ? new Date(`${list[0]}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })
+        : `${list.length} dagen`;
     const parts = [patch.place ? PLACE_LABEL[patch.place] : null, patch.transport ? (patch.transport === "ov" ? "met het OV" : "met de auto") : null];
     setLastAction({
       id: ++actionId.current,
@@ -441,8 +451,10 @@ export function useAgendaImport() {
       undo: () => {
         setDayChoices((prev) => {
           const next = { ...prev };
-          if (previous) next[date] = previous;
-          else delete next[date];
+          for (const d of list) {
+            if (previous[d]) next[d] = previous[d];
+            else delete next[d];
+          }
           return next;
         });
         setLastAction(null);
@@ -450,11 +462,16 @@ export function useAgendaImport() {
     });
   }
 
+  /** Kantooradres instellen vanuit de agenda (als je dat nog niet had gedaan). */
+  function saveOffice(location: Location) {
+    setSettings(updateSettings({ office: location }));
+  }
+
   /** Alles van deze week terug naar wat de app zelf raadt (met ongedaan maken). */
   function resetWeek() {
     const inWeek = (date: string) => date >= allDays[0] && date <= allDays[6];
     const eventIds = new Set(weekEvents.map((e) => e.id));
-    const snapshot = { dayChoices, decisions, manualStops, legOverrides, dayEnds };
+    const snapshot = { dayChoices, decisions, manualStops, legOverrides, dayEnds, dayStarts };
     const without = <T,>(rec: Record<string, T>, keep: (k: string) => boolean) =>
       Object.fromEntries(Object.entries(rec).filter(([k]) => keep(k)));
 
@@ -463,6 +480,7 @@ export function useAgendaImport() {
     setManualStops((prev) => prev.filter((m) => !inWeek(m.date)));
     setLegOverrides((prev) => without(prev, (k) => !inWeek(k.slice(0, 10))));
     setDayEnds((prev) => without(prev, (d) => !inWeek(d)));
+    setDayStarts((prev) => without(prev, (d) => !inWeek(d)));
     setSelection(null);
     setLastAction({
       id: ++actionId.current,
@@ -473,6 +491,7 @@ export function useAgendaImport() {
         setManualStops(snapshot.manualStops);
         setLegOverrides(snapshot.legOverrides);
         setDayEnds(snapshot.dayEnds);
+        setDayStarts(snapshot.dayStarts);
         setLastAction(null);
       },
     });
@@ -509,9 +528,17 @@ export function useAgendaImport() {
 
   /** Waar je die dag na je laatste afspraak naartoe reed; null = gewoon naar huis. */
   function setDayEnd(date: string, location: Location | null) {
-    const previous = dayEnds[date] ?? null;
+    setDayEndpoint("end", date, location);
+  }
+  /** Waar je die dag 's ochtends vertrok; null = gewoon vanaf huis. */
+  function setDayStart(date: string, location: Location | null) {
+    setDayEndpoint("start", date, location);
+  }
+  function setDayEndpoint(kind: "start" | "end", date: string, location: Location | null) {
+    const setter = kind === "start" ? setDayStarts : setDayEnds;
+    const previous = (kind === "start" ? dayStarts : dayEnds)[date] ?? null;
     const apply = (loc: Location | null) =>
-      setDayEnds((prev) => {
+      setter((prev) => {
         const next = { ...prev };
         if (loc) next[date] = loc;
         else delete next[date];
@@ -521,7 +548,10 @@ export function useAgendaImport() {
     setSelection(null);
     setLastAction({
       id: ++actionId.current,
-      message: location ? `Terugrit naar ${location.shortName}` : "Terugrit weer naar huis",
+      message:
+        kind === "start"
+          ? location ? `Vertrek vanaf ${location.shortName}` : "Vertrek weer vanaf huis"
+          : location ? `Terugrit naar ${location.shortName}` : "Terugrit weer naar huis",
       undo: () => {
         apply(previous);
         setLastAction(null);
@@ -624,6 +654,10 @@ export function useAgendaImport() {
     addManualStop,
     removeManualStop,
     setDayEnd,
+    setDayStart,
+    saveOffice,
+    dayStarts,
+    dayEnds,
     handleConfirm,
     addedMessage,
     confirmError,

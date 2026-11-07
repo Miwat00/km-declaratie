@@ -153,31 +153,36 @@ export function EventPanel({ imp, item }: { imp: AgendaImport; item: PlannedEven
 
 // ---------- rit ----------
 
-/** Laatste rit van de dag: standaard naar huis, maar je kunt een ander eindadres kiezen. */
-function ReturnDestination({ imp, leg }: { imp: AgendaImport; leg: Leg }) {
-  const { homeAddress, frequentLocations, setDayEnd, settings } = imp;
+/** Eerste en laatste rit van de dag: standaard vanaf en naar huis, maar je kunt een ander adres kiezen. */
+function DayEndpoint({ imp, leg, kind }: { imp: AgendaImport; leg: Leg; kind: "start" | "end" }) {
+  const { homeAddress, frequentLocations, setDayEnd, setDayStart, settings } = imp;
   const [changing, setChanging] = useState(false);
-  const toHome = !!homeAddress && samePlace(leg.to, homeAddress);
+  const isStart = kind === "start";
+  const point = isStart ? leg.from : leg.to;
+  const other = isStart ? leg.to : leg.from;
+  const set = (loc: Location | null) => (isStart ? setDayStart : setDayEnd)(leg.date, loc);
+  const atHome = !!homeAddress && samePlace(point, homeAddress);
   const choices = [settings.office, ...frequentLocations].filter(
-    (l): l is Location => !!l && !samePlace(l, leg.from) && !samePlace(l, leg.to)
+    (l): l is Location => !!l && !samePlace(l, point) && !samePlace(l, other) && !(homeAddress && samePlace(l, homeAddress))
   );
+  const label = isStart ? "Vertrek vanaf" : "Terug naar";
 
   return (
     <div className="rounded-lg bg-gray-50 p-3 space-y-2">
       <p className="text-sm text-gray-800">
-        Terug naar: <span className="font-medium">{toHome ? "Thuis" : leg.to.shortName}</span>
+        {label}: <span className="font-medium">{atHome ? "Thuis" : point.shortName}</span>
       </p>
       {!changing ? (
         <div className="flex gap-2 flex-wrap">
           <button type="button" className={btn} onClick={() => setChanging(true)}>Ander adres</button>
-          {!toHome && homeAddress && (
-            <button type="button" className={btn} onClick={() => setDayEnd(leg.date, null)}>Terug naar huis</button>
+          {!atHome && homeAddress && (
+            <button type="button" className={btn} onClick={() => set(null)}>{isStart ? "Vanaf huis" : "Terug naar huis"}</button>
           )}
         </div>
       ) : (
         <div className="space-y-2">
-          <LocationInput label="Terug naar" value={null} onChange={(loc) => loc && setDayEnd(leg.date, loc)} homeAddress={homeAddress} />
-          <QuickChips locations={choices.slice(0, 3)} onPick={(l) => setDayEnd(leg.date, l)} />
+          <LocationInput label={label} value={null} onChange={(loc) => loc && set(loc)} homeAddress={homeAddress} />
+          <QuickChips locations={choices.slice(0, 3)} onPick={set} />
           <button type="button" className="text-sm text-gray-700 hover:underline" onClick={() => setChanging(false)}>Annuleren</button>
         </div>
       )}
@@ -201,7 +206,8 @@ export function LegPanel({ imp, leg }: { imp: AgendaImport; leg: Leg }) {
         </p>
       </div>
 
-      {leg.isReturn && !leg.alreadyAdded && <ReturnDestination imp={imp} leg={leg} />}
+      {leg.isFirst && !leg.alreadyAdded && <DayEndpoint imp={imp} leg={leg} kind="start" />}
+      {leg.isReturn && !leg.alreadyAdded && <DayEndpoint imp={imp} leg={leg} kind="end" />}
 
       {leg.alreadyAdded ? (
         <p className="text-sm text-gray-800">Deze rit staat al in je declaratie en wordt niet nog eens toegevoegd.</p>

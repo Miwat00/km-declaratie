@@ -13,7 +13,7 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 <p>
   <img src="docs/screenshots/mobiel.png" alt="Rit toevoegen op mobiel: naam, datum en vaak gereden routes" width="260">
   &nbsp;
-  <img src="docs/screenshots/agenda-week.png" alt="Ritten uit je agenda: de week per dag met afstanden, en rechts de vraag waar een afspraak was" width="520">
+  <img src="docs/screenshots/agenda-week.png" alt="Ritten uit je agenda: de vraag boven de week, en per dag waar je werkte, hoe je reisde en de ritten met afstanden" width="520">
 </p>
 
 ## Features
@@ -26,6 +26,8 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 - **Ritten uit je agenda** via een geplakte agenda-link (Outlook, Google Agenda, iCloud) of een `.ics`-bestand:
   - met een onthouden link opent de app direct op de week die je nog moet declareren
   - per dag kies je waar je werkte (thuis, kantoor, op pad) en hoe je reisde (auto, OV); de app raadt dit vaak al uit je afspraken. OV- en thuiswerkdagen geven geen ritten, een kantoordag geeft thuis → kantoor → thuis, ook zonder afspraak
+  - je keuzes per dag blijven bewaard; een nieuwe week kun je met één klik gelijk zetten aan vorige week, en "Week opnieuw" zet alles terug naar wat de app raadt
+  - de week toont ma–vr in kolommen; het weekend staat uit tot je het nodig hebt, en een drukke kantoordag of OV-dag klapt in tot één blok
   - alleen op pad-dagen vraagt de app nog per afspraak waar die was, met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" (standaard uit) onthoudt het antwoord, en elke keuze is ongedaan te maken
   - per dag een ritketen thuis → afspraak → afspraak → thuis, met de afstand tussen de afspraken; dagen krijgen een vinkje als ze klaar zijn
   - zelf een tussenstop toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan

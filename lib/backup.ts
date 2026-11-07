@@ -8,6 +8,7 @@ export const BACKUP_KEYS = [
   "kilometer_client_directory",
   "kilometer_settings",
   "kilometer_skip_titles",
+  "kilometer_day_modes",
 ] as const;
 // De agenda-link (kilometer_calendar_url) zit er bewust niet in: wie het backupbestand heeft,
 // zou anders je agenda kunnen lezen. Plak de link op een nieuw apparaat opnieuw.

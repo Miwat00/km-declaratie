@@ -5,8 +5,8 @@ import Link from "next/link";
 import DayCard from "./DayCard";
 import LocationInput from "@/components/LocationInput";
 import QuestionCard from "./QuestionCard";
+import Sheet from "@/components/Sheet";
 import { AddStopPanel, EventPanel, LegPanel } from "./DetailPanels";
-import { useFocusTrap } from "@/components/useFocusTrap";
 import { rangeLabel, weekLabel } from "@/lib/dayPlan";
 import { todayLocal } from "@/lib/date";
 import { formatKm } from "@/lib/format";
@@ -25,89 +25,71 @@ function useIsDesktop() {
   );
 }
 
-/** Het paneel voor wat je aanklikt (afspraak, rit of nieuwe tussenstop). */
-function SelectionPanel({ imp }: { imp: AgendaImport }) {
-  const { selection, planned, legs } = imp;
-  if (selection?.type === "event") {
+/** Wat je aanklikt (afspraak, rit of nieuwe tussenstop), in een paneel boven de week. */
+function SelectionSheet({ imp }: { imp: AgendaImport }) {
+  const { selection, planned, legs, setSelection } = imp;
+  if (!selection) return null;
+  const close = () => setSelection(null);
+  if (selection.type === "event") {
     const item = planned.find((p) => p.event.id === selection.id);
-    return item ? <EventPanel key={item.event.id} imp={imp} item={item} /> : null;
+    return item ? <Sheet title="Afspraak" onClose={close}><EventPanel key={item.event.id} imp={imp} item={item} /></Sheet> : null;
   }
-  if (selection?.type === "leg") {
+  if (selection.type === "leg") {
     const leg = legs.find((l) => l.key === selection.key);
-    return leg ? <LegPanel key={leg.key} imp={imp} leg={leg} /> : null;
+    return leg ? <Sheet title="Rit" onClose={close}><LegPanel key={leg.key} imp={imp} leg={leg} /></Sheet> : null;
   }
-  if (selection?.type === "add") return <AddStopPanel key={selection.date} imp={imp} date={selection.date} />;
-  return null;
-}
-
-/** Mobiel: paneel dat van onderen inschuift. */
-function BottomSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  const { ref, onKeyDown } = useFocusTrap<HTMLDivElement>(onClose, "container");
-  return (
-    <div className="fixed inset-0 z-40 flex items-end bg-black/30" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div
-        ref={ref}
-        onKeyDown={onKeyDown}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Aanpassen"
-        tabIndex={-1}
-        className="w-full max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl focus:outline-none"
-      >
-        <div className="flex justify-end -mt-1 -mr-1">
-          <button type="button" onClick={onClose} className="p-2 text-gray-500 hover:text-gray-800" aria-label="Sluiten">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+  return <Sheet title="Tussenstop" onClose={close}><AddStopPanel key={selection.date} imp={imp} date={selection.date} /></Sheet>;
 }
 
 function Summary({ imp }: { imp: AgendaImport }) {
-  const { summary, rate, handleConfirm, confirmError, addedMessage, nextWeek, questions } = imp;
+  const { summary, rate, handleConfirm, confirmError, addedMessage, nextWeek, questions, dayQuestions } = imp;
   const canConfirm = summary.count > 0 && summary.missingKm === 0 && summary.loading === 0;
-  const label = `Zet ${summary.count} ${summary.count === 1 ? "rit" : "ritten"} in je declaratie`;
+  const openQuestions = questions.length + dayQuestions.length;
+
+  if (addedMessage) {
+    return (
+      <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-900 flex items-center gap-3 flex-wrap" role="status">
+        <span className="font-medium">{addedMessage}</span>
+        <Link href="/" className="underline">Naar je ritten</Link>
+        <button type="button" onClick={nextWeek} className="underline">Volgende week</button>
+      </div>
+    );
+  }
+  if (summary.count === 0 && summary.loading === 0 && openQuestions === 0) {
+    return (
+      <div className="rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm text-gray-700 flex items-center gap-3 flex-wrap">
+        <span>{summary.alreadyAdded > 0 ? "Alle ritten van deze week staan al in je declaratie." : "Deze week niets te declareren."}</span>
+        <button type="button" onClick={nextWeek} className="font-medium text-blue-700 hover:underline">Volgende week →</button>
+      </div>
+    );
+  }
   return (
-    <div className="space-y-2">
-      {addedMessage ? (
-        <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-900 space-y-1" role="status">
-          <p className="font-medium">{addedMessage}</p>
-          <p className="flex gap-3">
-            <Link href="/" className="underline">Naar je ritten</Link>
-            <button type="button" onClick={nextWeek} className="underline">Volgende week</button>
+    <div className="rounded-xl bg-white border border-gray-200 shadow-sm px-4 py-3 flex items-center gap-3 flex-wrap">
+      <div className="text-sm text-gray-700 flex-1 min-w-[12rem]">
+        <p>
+          <span className="font-semibold text-gray-900">{summary.count} {summary.count === 1 ? "rit" : "ritten"}</span> ·{" "}
+          {formatKm(summary.km)} km · € {(summary.km * rate).toFixed(2).replace(".", ",")}
+        </p>
+        {summary.loading > 0 && <p className="text-xs text-gray-600">Afstanden berekenen…</p>}
+        {summary.missingKm > 0 && (
+          <p className="text-xs text-orange-700">
+            {summary.missingKm} {summary.missingKm === 1 ? "rit heeft" : "ritten hebben"} nog geen afstand. Klik op &ldquo;afstand?&rdquo; om die in te vullen.
           </p>
-        </div>
-      ) : (
-        <>
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold text-gray-900">{summary.count} {summary.count === 1 ? "rit" : "ritten"}</span> ·{" "}
-            {formatKm(summary.km)} km · € {(summary.km * rate).toFixed(2).replace(".", ",")}
-          </p>
-          {summary.loading > 0 && <p className="text-xs text-gray-600">Afstanden berekenen…</p>}
-          {summary.missingKm > 0 && (
-            <p className="text-xs text-orange-700">
-              {summary.missingKm} {summary.missingKm === 1 ? "rit heeft" : "ritten hebben"} nog geen afstand. Klik op &ldquo;afstand?&rdquo; om die in te vullen.
-            </p>
-          )}
-          {questions.length > 0 && summary.count > 0 && (
-            <p className="text-xs text-gray-600">Afspraken met een open vraag tellen nog niet mee.</p>
-          )}
-          {summary.alreadyAdded > 0 && (
-            <p className="text-xs text-gray-600">{summary.alreadyAdded} {summary.alreadyAdded === 1 ? "rit staat" : "ritten staan"} al in je declaratie.</p>
-          )}
-          {confirmError && <p className="text-xs text-red-700">{confirmError}</p>}
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold"
-          >
-            {label}
-          </button>
-        </>
-      )}
+        )}
+        {openQuestions > 0 && <p className="text-xs text-gray-600">Dagen en afspraken met een open vraag tellen nog niet mee.</p>}
+        {summary.alreadyAdded > 0 && (
+          <p className="text-xs text-gray-600">{summary.alreadyAdded} {summary.alreadyAdded === 1 ? "rit staat" : "ritten staan"} al in je declaratie.</p>
+        )}
+        {confirmError && <p className="text-xs text-red-700">{confirmError}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={handleConfirm}
+        disabled={!canConfirm}
+        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-semibold"
+      >
+        Zet {summary.count} {summary.count === 1 ? "rit" : "ritten"} in je declaratie
+      </button>
     </div>
   );
 }
@@ -122,7 +104,7 @@ function UndoToast({ imp }: { imp: AgendaImport }) {
   }, [lastAction, setLastAction]);
   if (!lastAction) return null;
   return (
-    <div className="fixed bottom-4 inset-x-0 z-50 flex justify-center px-4 pointer-events-none" role="status">
+    <div className="fixed bottom-4 inset-x-0 z-[950] flex justify-center px-4 pointer-events-none" role="status">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-gray-900 text-white text-sm pl-4 pr-2 py-2 shadow-lg max-w-full">
         <span className="truncate">{lastAction.message}</span>
         <button type="button" onClick={lastAction.undo} className="flex-shrink-0 rounded-full px-3 py-1 font-medium text-blue-200 hover:bg-white/10">
@@ -136,36 +118,16 @@ function UndoToast({ imp }: { imp: AgendaImport }) {
 export default function WeekStep({ imp }: { imp: AgendaImport }) {
   const {
     days, weekStart, planned, legs, manualStops, selection, setSelection, prevWeek, nextWeek, homeAddress, setStep,
-    hasSavedUrl, fetchedAt, refresh, autoFetching,
+    hasSavedUrl, fetchedAt, refresh, autoFetching, showWeekend, setShowWeekend, weekendInfo, resetWeek,
+    previousWeek, copyPreviousWeek, dayModes, setDayMode, questions, dayQuestions,
   } = imp;
   const isDesktop = useIsDesktop();
   const today = todayLocal();
-
-  const daysView = (
-    <div
-      className="grid gap-2"
-      style={isDesktop ? { gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` } : undefined}
-    >
-      {days.map((d) => (
-        <DayCard
-          key={d}
-          date={d}
-          planned={planned.filter((p) => p.event.date === d)}
-          legs={legs.filter((l) => l.date === d)}
-          manualStops={manualStops.filter((m) => m.date === d)}
-          selection={selection}
-          onSelect={setSelection}
-          mode={imp.dayModes[d] ?? { place: "thuis", transport: "auto", chosen: false }}
-          onMode={(patch) => imp.setDayMode(d, patch)}
-        />
-      ))}
-    </div>
-  );
-
-  const panelBox = "bg-white rounded-xl border border-gray-200 shadow-sm p-4";
+  const box = "bg-white rounded-xl border border-gray-200 shadow-sm p-4";
+  const hasQuestions = questions.length + dayQuestions.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Weekkop */}
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
@@ -181,16 +143,34 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
             {weekLabel(weekStart, today)} <span className="font-normal text-gray-600">· {rangeLabel(days[0], days[days.length - 1])}</span>
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button type="button" onClick={prevWeek} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50" aria-label="Week eerder">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <button type="button" onClick={nextWeek} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50" aria-label="Week later">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
-          <button type="button" onClick={() => setStep(1)} className="text-sm text-gray-600 hover:text-gray-900 ml-1">Andere agenda</button>
+          <button type="button" onClick={resetWeek} className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-800 hover:bg-gray-50" title="Alle keuzes van deze week terug naar wat de app raadt">
+            Week opnieuw
+          </button>
+          <button type="button" onClick={() => setStep(1)} className="text-sm text-gray-700 hover:text-gray-900 ml-1">Andere agenda</button>
         </div>
       </div>
+
+      {/* Weekend: standaard uit */}
+      <p className="text-xs text-gray-600">
+        {showWeekend ? (
+          <>Weekend zichtbaar · <button type="button" className="text-blue-700 hover:underline" onClick={() => setShowWeekend(false)}>verbergen</button></>
+        ) : weekendInfo.count > 0 ? (
+          <>
+            Weekend: {weekendInfo.count} {weekendInfo.count === 1 ? "afspraak" : "afspraken"}
+            {weekendInfo.withPlace > 0 ? `, ${weekendInfo.withPlace} met een adres` : ", niets met een adres"} ·{" "}
+            <button type="button" className="text-blue-700 hover:underline" onClick={() => setShowWeekend(true)}>tonen</button>
+          </>
+        ) : (
+          <>Geen afspraken in het weekend · <button type="button" className="text-blue-700 hover:underline" onClick={() => setShowWeekend(true)}>toch tonen</button></>
+        )}
+      </p>
 
       {!homeAddress && (
         <section className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2" aria-labelledby="home-prompt">
@@ -200,46 +180,40 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
         </section>
       )}
 
-      {isDesktop ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_20rem] gap-4 items-start">
-          {planned.length === 0 && manualStops.length === 0 ? (
-            <p className={`${panelBox} text-sm text-gray-600 text-center py-10`}>Geen afspraken in deze week.</p>
-          ) : (
-            daysView
-          )}
-          <aside className="sticky top-4 space-y-3" aria-label="Je week afronden">
-            <div className={panelBox}>
-              {selection ? (
-                <div className="space-y-3">
-                  <button type="button" onClick={() => setSelection(null)} className="text-sm text-blue-700 hover:underline">
-                    ← Terug
-                  </button>
-                  <SelectionPanel imp={imp} />
-                </div>
-              ) : (
-                <QuestionCard imp={imp} />
-              )}
-            </div>
-            <div className={panelBox}><Summary imp={imp} /></div>
-          </aside>
+      {previousWeek && (
+        <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 flex items-center gap-3 flex-wrap text-sm text-blue-950">
+          <span>Zelfde als vorige week ({previousWeek.summary})?</span>
+          <button type="button" onClick={copyPreviousWeek} className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 font-medium">
+            Overnemen
+          </button>
+          <span className="text-xs text-blue-900">of kies hieronder per dag</span>
         </div>
-      ) : (
-        <>
-          {planned.length > 0 && <div className={panelBox}><QuestionCard imp={imp} /></div>}
-          {planned.length === 0 && manualStops.length === 0 ? (
-            <p className={`${panelBox} text-sm text-gray-600 text-center py-10`}>Geen afspraken in deze week.</p>
-          ) : (
-            daysView
-          )}
-          <div className={panelBox}><Summary imp={imp} /></div>
-          {selection && (
-            <BottomSheet onClose={() => setSelection(null)}>
-              <SelectionPanel imp={imp} />
-            </BottomSheet>
-          )}
-        </>
       )}
 
+      {/* De vraag als balk boven de week */}
+      {(hasQuestions || planned.length > 0) && <div className={box}><QuestionCard imp={imp} /></div>}
+
+      <div
+        className="grid gap-2"
+        style={isDesktop ? { gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` } : undefined}
+      >
+        {days.map((d) => (
+          <DayCard
+            key={d}
+            date={d}
+            planned={planned.filter((p) => p.event.date === d)}
+            legs={legs.filter((l) => l.date === d)}
+            manualStops={manualStops.filter((m) => m.date === d)}
+            selection={selection}
+            onSelect={setSelection}
+            mode={dayModes[d] ?? { place: "thuis", transport: "auto", chosen: false }}
+            onMode={(patch) => setDayMode(d, patch)}
+          />
+        ))}
+      </div>
+
+      <Summary imp={imp} />
+      <SelectionSheet imp={imp} />
       <UndoToast imp={imp} />
     </div>
   );

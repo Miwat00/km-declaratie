@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { parseIcs } from "@/lib/ics";
 import { geocodeEventLocation } from "@/lib/tripGenerator";
 import {
-  addDays, applyDayMode, countedLegs, defaultsFor, eventStatus, inferPlace, legToTrip, mondayOf, normalizeTitle,
+  addDays, applyDayMode, weekdayIndex, countedLegs, defaultsFor, eventStatus, inferPlace, legToTrip, mondayOf, normalizeTitle,
   pickStartWeek, planDay, routeKey, weekDays, weekSummary,
   type DayMode, type EventDecision, type LegOverride, type ManualStop, type Place, type PlannedEvent, type RouteInfo,
   type RouteLookup, type Transport,
@@ -12,10 +12,13 @@ import {
 import {
   loadTrips, saveTrips, loadRate, loadHomeAddress, saveHomeAddress, loadClientDirectory, saveClientDirectory, loadSettings,
   updateSettings, DEFAULT_RATE, DEFAULT_SETTINGS, loadCalendarUrl, saveCalendarUrl, loadSkipTitles, saveSkipTitles,
+  loadDayModes, saveDayModes,
 } from "@/lib/storage";
 import { getRouteWithGeometry } from "@/lib/osrm";
 import { todayLocal } from "@/lib/date";
 import type { CalendarEvent, ClientEntry, Location, Settings, Trip } from "@/lib/types";
+
+const PLACE_LABEL: Record<Place, string> = { thuis: "thuis", kantoor: "op kantoor", pad: "op pad" };
 
 export type Step = 1 | 2;
 
@@ -82,7 +85,15 @@ export function useAgendaImport() {
   /** Per dag: waar de laatste rit naartoe gaat als dat niet thuis is */
   const [dayEnds, setDayEnds] = useState<Record<string, Location>>({});
   /** Per dag: waar je werkte en hoe je reisde, als je dat zelf koos */
-  const [dayChoices, setDayChoices] = useState<Record<string, { place?: Place; transport?: Transport }>>({});
+  const [dayChoices, setDayChoicesState] = useState<Record<string, { place?: Place; transport?: Transport }>>({});
+  const [showWeekend, setShowWeekend] = useState(false);
+  // Dagkeuzes blijven per datum bewaard, zodat een week er later nog net zo uitziet
+  const setDayChoices = (update: (prev: typeof dayChoices) => typeof dayChoices) =>
+    setDayChoicesState((prev) => {
+      const next = update(prev);
+      saveDayModes(next);
+      return next;
+    });
   const [legOverrides, setLegOverrides] = useState<Record<string, LegOverride>>({});
   const [selection, setSelection] = useState<Selection>(null);
   const [lastAction, setLastAction] = useState<LastAction | null>(null);
@@ -116,7 +127,6 @@ export function useAgendaImport() {
     setDecisions({});
     setManualStops([]);
     setDayEnds({});
-    setDayChoices({});
     setLegOverrides({});
     setSelection(null);
     setLastAction(null);
@@ -138,6 +148,7 @@ export function useAgendaImport() {
     setHomeAddress(loadHomeAddress());
     setRate(loadRate());
     setExistingTrips(loadTrips());
+    setDayChoicesState(loadDayModes());
 
     // Met een onthouden link halen we de agenda meteen op en sla je stap 1 over
     const savedUrl = loadCalendarUrl();
@@ -218,12 +229,6 @@ export function useAgendaImport() {
     () => allEvents.filter((e) => e.date >= allDays[0] && e.date <= allDays[6]),
     [allEvents, allDays]
   );
-  // Weekend alleen tonen als er dan afspraken of tussenstops zijn
-  const days = useMemo(() => {
-    const busy = new Set([...weekEvents.map((e) => e.date), ...manualStops.map((m) => m.date)]);
-    return busy.has(allDays[5]) || busy.has(allDays[6]) ? allDays : allDays.slice(0, 5);
-  }, [allDays, weekEvents, manualStops]);
-
   // Eerst wat de afspraak zelf zegt (koppeling, kantoor, online…), dan wat de dag zegt (thuis, kantoor, OV)
   const basePlanned: PlannedEvent[] = useMemo(
     () =>
@@ -237,11 +242,20 @@ export function useAgendaImport() {
     [weekEvents, decisions, directory, settings, geocoded, skipTitles]
   );
 
+  // Het weekend staat standaard uit; je kunt het tonen als je toch eens in het weekend reed
+  const days = useMemo(() => (showWeekend ? allDays : allDays.slice(0, 5)), [allDays, showWeekend]);
+  const weekendInfo = useMemo(() => {
+    const weekend = basePlanned.filter((p) => p.event.date >= allDays[5]);
+    return { count: weekend.length, withPlace: weekend.filter((p) => p.status.kind === "linked").length };
+  }, [basePlanned, allDays]);
+
   const dayModes: Record<string, DayMode> = useMemo(() => {
     const out: Record<string, DayMode> = {};
     for (const d of days) {
       const chosen = dayChoices[d] ?? {};
-      const inferred = inferPlace(basePlanned.filter((p) => p.event.date === d).map((p) => p.status));
+      const guess = inferPlace(basePlanned.filter((p) => p.event.date === d).map((p) => p.status));
+      // In het weekend werk je meestal niet: geen vraag, tenzij je zelf iets kiest
+      const inferred = guess === null && weekdayIndex(d) >= 5 ? "thuis" : guess;
       out[d] = { place: chosen.place ?? inferred, transport: chosen.transport ?? "auto", chosen: !!chosen.place };
     }
     return out;
@@ -413,18 +427,17 @@ export function useAgendaImport() {
     });
   }
 
-  const PLACE_LABEL: Record<Place, string> = { thuis: "thuis", kantoor: "op kantoor", pad: "op pad" };
 
   /** Waar je werkte en/of hoe je reisde op een dag. */
   function setDayMode(date: string, patch: { place?: Place; transport?: Transport }) {
     const previous = dayChoices[date];
     setDayChoices((prev) => ({ ...prev, [date]: { ...prev[date], ...patch } }));
     setSelection(null);
-    const [, m, d] = date.split("-").map(Number);
+    const dayLabel = new Date(`${date}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
     const parts = [patch.place ? PLACE_LABEL[patch.place] : null, patch.transport ? (patch.transport === "ov" ? "met het OV" : "met de auto") : null];
     setLastAction({
       id: ++actionId.current,
-      message: `${d}-${m}: ${parts.filter(Boolean).join(", ")}`,
+      message: `${dayLabel}: ${parts.filter(Boolean).join(", ")}`,
       undo: () => {
         setDayChoices((prev) => {
           const next = { ...prev };
@@ -432,6 +445,63 @@ export function useAgendaImport() {
           else delete next[date];
           return next;
         });
+        setLastAction(null);
+      },
+    });
+  }
+
+  /** Alles van deze week terug naar wat de app zelf raadt (met ongedaan maken). */
+  function resetWeek() {
+    const inWeek = (date: string) => date >= allDays[0] && date <= allDays[6];
+    const eventIds = new Set(weekEvents.map((e) => e.id));
+    const snapshot = { dayChoices, decisions, manualStops, legOverrides, dayEnds };
+    const without = <T,>(rec: Record<string, T>, keep: (k: string) => boolean) =>
+      Object.fromEntries(Object.entries(rec).filter(([k]) => keep(k)));
+
+    setDayChoices((prev) => without(prev, (d) => !inWeek(d)));
+    setDecisions((prev) => without(prev, (id) => !eventIds.has(id)));
+    setManualStops((prev) => prev.filter((m) => !inWeek(m.date)));
+    setLegOverrides((prev) => without(prev, (k) => !inWeek(k.slice(0, 10))));
+    setDayEnds((prev) => without(prev, (d) => !inWeek(d)));
+    setSelection(null);
+    setLastAction({
+      id: ++actionId.current,
+      message: "Week teruggezet naar wat de app raadt",
+      undo: () => {
+        setDayChoices(() => snapshot.dayChoices);
+        setDecisions(snapshot.decisions);
+        setManualStops(snapshot.manualStops);
+        setLegOverrides(snapshot.legOverrides);
+        setDayEnds(snapshot.dayEnds);
+        setLastAction(null);
+      },
+    });
+  }
+
+  /** Dagkeuzes van vorige week, als voorstel voor deze week (alleen als je deze week nog niets koos). */
+  const previousWeek = useMemo(() => {
+    const thisWeekChosen = allDays.some((d) => dayChoices[d]);
+    if (thisWeekChosen) return null;
+    const pairs = allDays.slice(0, 5).map((d) => ({ date: d, prev: dayChoices[addDays(d, -7)] })).filter((p) => p.prev?.place || p.prev?.transport);
+    if (pairs.length === 0) return null;
+    const label = (c: { place?: Place; transport?: Transport }) =>
+      `${c.place ? PLACE_LABEL[c.place] : "?"}${c.transport === "ov" ? " · OV" : c.place && c.place !== "thuis" ? " · auto" : ""}`;
+    const labels = [...new Set(pairs.map((p) => label(p.prev!)))];
+    return { pairs, summary: labels.length === 1 && pairs.length === 5 ? `ma–vr ${labels[0]}` : `${pairs.length} dagen` };
+  }, [allDays, dayChoices]);
+
+  function copyPreviousWeek() {
+    if (!previousWeek) return;
+    setDayChoices((prev) => {
+      const next = { ...prev };
+      for (const { date, prev: c } of previousWeek.pairs) next[date] = { ...c };
+      return next;
+    });
+    setLastAction({
+      id: ++actionId.current,
+      message: "Dagen van vorige week overgenomen",
+      undo: () => {
+        setDayChoices((prev) => Object.fromEntries(Object.entries(prev).filter(([d]) => !previousWeek.pairs.some((p) => p.date === d))));
         setLastAction(null);
       },
     });
@@ -533,6 +603,12 @@ export function useAgendaImport() {
     dayModes,
     dayQuestions,
     setDayMode,
+    showWeekend,
+    setShowWeekend,
+    weekendInfo,
+    resetWeek,
+    previousWeek,
+    copyPreviousWeek,
     manualStops,
     summary,
     questions,

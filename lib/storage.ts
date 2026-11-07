@@ -126,3 +126,22 @@ export function wipeAllData(): void {
     if (key.startsWith("kilometer_")) localStorage.removeItem(key);
   }
 }
+
+const DAY_MODES_KEY = "kilometer_day_modes";
+
+export type StoredDayMode = { place?: "thuis" | "kantoor" | "pad"; transport?: "auto" | "ov" };
+
+/** Je eigen keuzes per datum (waar gewerkt, hoe gereisd), zodat ze blijven staan als je de week later weer opent. */
+export function loadDayModes(): Record<string, StoredDayMode> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(DAY_MODES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveDayModes(modes: Record<string, StoredDayMode>): void {
+  localStorage.setItem(DAY_MODES_KEY, JSON.stringify(modes));
+}

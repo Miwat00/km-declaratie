@@ -7,7 +7,7 @@ const CLIENT_DIR_KEY = "kilometer_client_directory";
 const SETTINGS_KEY = "kilometer_settings";
 
 export const DEFAULT_RATE = 0.23;
-export const DEFAULT_SETTINGS: Settings = { userName: "", companyName: "", office: null };
+export const DEFAULT_SETTINGS: Settings = { userName: "", companyName: "", office: null, adminEmail: "" };
 
 export function loadTrips(): Trip[] {
   if (typeof window === "undefined") return [];
@@ -118,4 +118,11 @@ export function loadSkipTitles(): string[] {
 
 export function saveSkipTitles(titles: string[]): void {
   localStorage.setItem(SKIP_TITLES_KEY, JSON.stringify(titles));
+}
+
+/** Wist alle gegevens van deze app uit deze browser (ritten, instellingen, agenda-link). */
+export function wipeAllData(): void {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("kilometer_")) localStorage.removeItem(key);
+  }
 }

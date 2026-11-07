@@ -16,8 +16,8 @@ test("de app werkt binnen de Content Security Policy", async ({ page }) => {
   });
 
   await seed(page, DEFAULT_SEED);
-  const form = page.locator("#trip-form");
-  await form.getByRole("button", { name: "Thuis" }).first().click();
+  await page.getByRole("button", { name: /^Voeg een rit toe/ }).click();
+  const form = page.getByRole("form", { name: "Rit toevoegen" });
   await form.getByRole("button", { name: "Kantoor" }).nth(1).click();
   await expect(form.getByLabel("Afstand")).not.toHaveValue("");
   await page.goto("/agenda");

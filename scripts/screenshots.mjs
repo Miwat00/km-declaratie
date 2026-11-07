@@ -44,35 +44,33 @@ const DATA = {
 async function newPage(browser, device) {
   const context = await browser.newContext({ ...device, locale: "nl-NL", timezoneId: "Europe/Amsterdam", serviceWorkers: "block" });
   const page = await context.newPage();
+  await page.clock.setFixedTime(new Date("2026-11-11T10:00:00+01:00"));
   await page.goto(BASE);
   await page.evaluate((data) => {
     localStorage.clear();
     for (const [k, v] of Object.entries(data)) localStorage.setItem(k, JSON.stringify(v));
   }, DATA);
   await page.reload();
-  await page.locator("#trip-form").waitFor();
+  await page.getByRole("heading", { name: "Kilometers" }).waitFor();
   return page;
 }
 
 const browser = await chromium.launch();
 
-// 1. Desktop: formulier met routekaart, en het overzicht van november
+// 1. Desktop: de maand met totaal, de agenda-kaart en de ritten
 {
-  const page = await newPage(browser, { viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 2 });
-  await page.getByLabel("Maand").selectOption("2026-11");
-  await page.getByRole("button", { name: /Workshop/ }).first().click(); // snelkeuze
-  await page.locator(".leaflet-tile-loaded").first().waitFor({ timeout: 20_000 });
-  await page.waitForTimeout(1500); // kaarttegels laten inladen
+  const page = await newPage(browser, { viewport: { width: 1000, height: 1000 }, deviceScaleFactor: 2 });
+  await page.getByRole("heading", { name: "November 2026" }).waitFor();
   await page.screenshot({ path: `${OUT}/overzicht.png`, fullPage: true });
   await page.context().close();
 }
 
-// 2. Mobiel: rittenlijst met gedeclareerde ritten
+// 2. Mobiel: "+ Rit" met vaak gereden routes
 {
   const page = await newPage(browser, devices["Pixel 7"]);
-  // Begin bij de filters, zodat de rittenlijst in beeld is
-  await page.getByLabel("Maand").evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16));
-  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Rit", exact: true }).click();
+  await page.getByText("Vaak gereden").waitFor();
+  await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/mobiel.png` });
   await page.context().close();
 }

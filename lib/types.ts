@@ -49,4 +49,6 @@ export type Settings = {
   userName: string;
   companyName: string;
   office: Location | null;
+  /** E-mailadres waar je declaraties naartoe gaan (bijv. de administratie) */
+  adminEmail: string;
 };

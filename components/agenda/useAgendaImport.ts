@@ -9,7 +9,7 @@ import {
   type EventDecision, type LegOverride, type ManualStop, type PlannedEvent, type RouteInfo, type RouteLookup,
 } from "@/lib/dayPlan";
 import {
-  loadTrips, saveTrips, loadRate, loadHomeAddress, loadClientDirectory, saveClientDirectory, loadSettings,
+  loadTrips, saveTrips, loadRate, loadHomeAddress, saveHomeAddress, loadClientDirectory, saveClientDirectory, loadSettings,
   updateSettings, DEFAULT_RATE, DEFAULT_SETTINGS, loadCalendarUrl, saveCalendarUrl, loadSkipTitles, saveSkipTitles,
 } from "@/lib/storage";
 import { getRouteWithGeometry } from "@/lib/osrm";
@@ -192,6 +192,11 @@ export function useAgendaImport() {
     }
     const keepWeek = weekStart;
     if (processIcs(text)) setWeekStart(keepWeek);
+  }
+
+  function saveHome(loc: Location) {
+    saveHomeAddress(loc);
+    setHomeAddress(loc);
   }
 
   function forgetCalendarUrl() {
@@ -431,6 +436,7 @@ export function useAgendaImport() {
     setShowDirectory,
     handleDirectoryChange,
     homeAddress,
+    saveHome,
     settings,
     rate,
     weekStart,

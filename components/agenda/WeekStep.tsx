@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import DayCard from "./DayCard";
+import LocationInput from "@/components/LocationInput";
 import QuestionCard from "./QuestionCard";
 import { AddStopPanel, EventPanel, LegPanel } from "./DetailPanels";
 import { useFocusTrap } from "@/components/useFocusTrap";
@@ -190,10 +191,11 @@ export default function WeekStep({ imp }: { imp: AgendaImport }) {
       </div>
 
       {!homeAddress && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-          Geen thuisadres ingesteld, dus de app kan geen ritten plannen. Stel het in via Instellingen (tandwiel) op de{" "}
-          <Link href="/" className="underline">hoofdpagina</Link>.
-        </div>
+        <section className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2" aria-labelledby="home-prompt">
+          <h2 id="home-prompt" className="text-sm font-semibold text-amber-950">Waar begint je dag?</h2>
+          <p className="text-sm text-amber-900">Je ritten gaan van huis naar je afspraken en terug. Vul je thuisadres in, dan rekent de app je week uit.</p>
+          <LocationInput label="Thuisadres" value={null} onChange={(loc) => loc && imp.saveHome(loc)} homeAddress={null} />
+        </section>
       )}
 
       {isDesktop ? (

@@ -18,8 +18,19 @@ const trip = {
 };
 
 test("hoofdpagina met ritten", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-11T10:00:00+01:00"));
   await seed(page, { ...DEFAULT_SEED, trips: [trip, { ...trip, id: "2", declaredAt: undefined, billable: false }] });
-  await expect(page.locator("#trip-form")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kilometers" })).toBeVisible();
+  await expectNoSeriousViolations(page);
+});
+
+test("rit toevoegen-paneel en declareren", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-11T10:00:00+01:00"));
+  await seed(page, { ...DEFAULT_SEED, trips: [{ ...trip, declaredAt: undefined }] });
+  await page.getByRole("button", { name: "Declareren" }).click();
+  await expectNoSeriousViolations(page);
+  await page.getByRole("button", { name: "Rit", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Rit toevoegen" })).toBeVisible();
   await expectNoSeriousViolations(page);
 });
 

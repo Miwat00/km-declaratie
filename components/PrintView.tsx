@@ -33,7 +33,7 @@ export default function PrintView({ trips, periodLabel, companyName }: Props) {
             <th className="py-1 pr-2">Doel</th>
             <th className="py-1 pr-2">Klant / project</th>
             <th className="py-1 pr-2">Route</th>
-            <th className="py-1 pr-2 text-center">Fact.</th>
+            <th className="py-1 pr-2 text-center">Doorb.</th>
             <th className="py-1 pr-2 text-right">Km</th>
             <th className="py-1 pr-2 text-right">€/km</th>
             <th className="py-1 text-right">Bedrag</th>

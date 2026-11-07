@@ -11,16 +11,18 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
 ![Overzicht met routekaart, snelkeuze en ritten van november](docs/screenshots/overzicht.png)
 
 <p>
-  <img src="docs/screenshots/mobiel.png" alt="Rittenlijst op mobiel met gedeclareerde ritten" width="260">
+  <img src="docs/screenshots/mobiel.png" alt="Rit toevoegen op mobiel: naam, datum en vaak gereden routes" width="260">
   &nbsp;
   <img src="docs/screenshots/agenda-week.png" alt="Ritten uit je agenda: de week per dag met afstanden, en rechts de vraag waar een afspraak was" width="520">
 </p>
 
 ## Features
 
-- **Rit toevoegen** met adres-autocomplete, routekaart en automatische afstand (heen en terug in één keer). De afstand kun je aanpassen (omleiding) of zelf invullen als de routeservice niet bereikbaar is
-- **Toegankelijk**: adressen kiezen met pijltjestoetsen en Enter, gekoppelde labels, en vensters die de focus vasthouden
-- **Snelknoppen** voor je thuis- en kantooradres
+- **Eén scherm per maand**: bovenaan het bedrag, de kilometers en of de maand al gedeclareerd is; met ← → blader je door de maanden
+- **Declareren met één knop**: mailen (naar het adres uit je instellingen), PDF of CSV; daarna staat de maand op gedeclareerd, met ongedaan maken
+- **Ritten als overzichtelijke lijst** per week, met heen en terug op één regel ("Thuis ⇄ Kantoor"); tik erop om te bewerken of te verwijderen
+- **"+ Rit"**: je vaak gereden routes met één tik, of een kort formulier (naam, datum, van, naar, waarvoor). De afstand rekent de app zelf uit, je kunt hem aanpassen of zelf invullen
+- **Meerdere mensen op één apparaat**: de naam staat per rit in het formulier; zodra een maand meer namen heeft, toont de lijst wie er reed
 - **Ritten uit je agenda** via een geplakte agenda-link (Outlook, Google Agenda, iCloud) of een `.ics`-bestand:
   - met een onthouden link opent de app direct op de week die je nog moet declareren
   - afspraken waarvan de plek onbekend is, stelt de app als vraag ("Waar was “Lunch met Jan”?") met de waarschijnlijkste antwoorden als knoppen; "voortaan automatisch" onthoudt het antwoord, en elke keuze is ongedaan te maken
@@ -28,9 +30,6 @@ Houd je zakelijke kilometers bij en declareer ze in een paar tikken. Vul start- 
   - zelf een tussenstop toevoegen voor ritten die niet in je agenda staan (tanken, materiaal ophalen); de route past zich aan
   - herkent terugkerende, verplaatste, geannuleerde en online afspraken (Teams/Zoom) en zoekt adressen uit het locatieveld op
   - ritten die al in je declaratie staan worden niet dubbel toegevoegd
-- **Snelkeuze** voor routes die je vaker rijdt: één tik vult route, doel en klant in
-- **Ritten bewerken**: tik op een rit (mobiel) of op het potlood (desktop)
-- **Per maand declareren**: filter op maand en status, markeer ritten als gedeclareerd zodat je niets dubbel indient
 - **Export** naar CSV (Excel-vriendelijk: `;` en komma-decimalen), PDF (via afdrukken, met handtekeningregel) of direct mailen; op mobiel als bijlage via het deelmenu
 - **Tarief per rit**: als je het tarief wijzigt, blijven eerdere ritten op hun oude tarief staan
 - **Backup en herstel** als JSON-bestand, ook handig om naar een ander apparaat over te stappen

@@ -1,15 +1,14 @@
 import { test, expect, ADDRESSES, shortName } from "./fixtures";
 
-test("eerste bezoek: instellingen invullen, alleen met het toetsenbord", async ({ page }) => {
+test("eerste bezoek: twee manieren om te beginnen, instellingen met alleen het toetsenbord", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Hoe wil je beginnen?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Haal je ritten uit je agenda/ })).toHaveAttribute("href", "/agenda");
 
+  await page.getByRole("button", { name: "Instellingen" }).click();
   const dialog = page.getByRole("dialog", { name: "Instellingen" });
-  await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Je naam")).toBeFocused();
-
   await page.keyboard.type("Sam Tester");
-  await page.keyboard.press("Tab");
-  await page.keyboard.type("Voorbeeld BV");
 
   // Thuisadres kiezen met pijltje + Enter
   const home = dialog.getByRole("combobox", { name: "Thuisadres" });
@@ -33,26 +32,39 @@ test("eerste bezoek: instellingen invullen, alleen met het toetsenbord", async (
   await page.keyboard.press("Enter");
   await expect(office).toHaveValue(shortName(ADDRESSES.office));
 
+  await dialog.getByLabel("Tarief per km").fill("0,25");
   await dialog.getByRole("button", { name: "Opslaan" }).click();
   await expect(dialog).toBeHidden();
+  expect(await page.evaluate(() => localStorage.getItem("kilometer_rate"))).toBe("0.25");
 
-  // Naam staat klaar en de snelknoppen voor thuis en kantoor verschijnen
-  const form = page.locator("#trip-form");
-  await expect(form.getByLabel("Je naam")).toHaveValue("Sam Tester");
-  await expect(form.getByRole("button", { name: "Thuis" })).toHaveCount(2);
+  // Het formulier kent nu naam, thuis en kantoor
+  await page.getByRole("button", { name: /^Voeg een rit toe/ }).click();
+  const form = page.getByRole("form", { name: "Rit toevoegen" });
+  await expect(form.getByLabel("Naam")).toHaveValue("Sam Tester");
+  await expect(form.getByRole("combobox", { name: "Van" })).toHaveValue(shortName(ADDRESSES.home));
   await expect(form.getByRole("button", { name: "Kantoor" })).toHaveCount(2);
 });
 
 test("instellingen sluiten met Escape geeft de focus terug", async ({ page }) => {
   await page.goto("/");
+  const gear = page.getByRole("button", { name: "Instellingen" });
+  await gear.click();
   const dialog = page.getByRole("dialog", { name: "Instellingen" });
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-
-  const gear = page.getByRole("button", { name: "Instellingen" });
-  await gear.click();
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press("Escape");
   await expect(gear).toBeFocused();
+});
+
+test("alle gegevens wissen", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("kilometer_trips", "[]");
+    localStorage.setItem("kilometer_calendar_url", "https://outlook.office365.com/x.ics");
+  });
+  await page.getByRole("button", { name: "Instellingen" }).click();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Alle gegevens wissen…" }).click();
+  await expect(page.getByRole("heading", { name: "Hoe wil je beginnen?" })).toBeVisible();
+  expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("kilometer_")))).toEqual([]);
 });

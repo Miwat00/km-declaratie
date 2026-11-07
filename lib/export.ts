@@ -19,7 +19,7 @@ export function totals(trips: Trip[]): { km: number; amount: number } {
 /** CSV met ; als scheidingsteken en komma-decimalen, zodat Excel (NL) het direct goed opent. */
 export function buildCsv(trips: Trip[]): string {
   const header = [
-    "Datum", "Naam", "Doel van de rit", "Klant / project", "Factureerbaar",
+    "Datum", "Naam", "Doel van de rit", "Klant / project", "Doorbelasten",
     "Startpunt", "Eindpunt", "Kilometer", "Tarief (€/km)", "Bedrag (€)",
   ];
   const rows = [...trips]
@@ -84,7 +84,8 @@ ${namen[0]}`;
   return { subject, body };
 }
 
-export async function emailDeclaratie(trips: Trip[]): Promise<void> {
+/** Mailt de declaratie: op mobiel als bijlage via het deelmenu, anders CSV downloaden en je mailprogramma openen. */
+export async function emailDeclaratie(trips: Trip[], to = ""): Promise<void> {
   const { subject, body } = buildEmail(trips);
   const blob = csvBlob(trips);
   const fileName = csvFileName();
@@ -106,6 +107,6 @@ export async function emailDeclaratie(trips: Trip[]): Promise<void> {
   // Optie B: CSV downloaden + mailto openen met samenvatting
   download(blob, fileName);
   setTimeout(() => {
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }, 500);
 }

@@ -52,6 +52,9 @@ test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declarati
   // De app vraagt waar de lunch was
   await expect(page.getByText("Nog 1 vraag, daarna is je week klaar")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Waar was “Lunch met Jan”?" })).toBeVisible();
+  const remember = page.getByLabel("Voortaan automatisch voor “Lunch met Jan”");
+  await expect(remember).not.toBeChecked(); // standaard uit
+  await remember.check();
   await page.getByRole("button", { name: "Ander adres…" }).click();
   await page.getByRole("combobox", { name: "Ander adres" }).fill("Jaarbeursplein 6, Utrecht");
   await page.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
@@ -89,6 +92,7 @@ test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declarati
 
 test("'geen rit' kun je ongedaan maken en voortaan onthouden", async ({ page }) => {
   await openWeek(page);
+  await page.getByLabel("Voortaan automatisch voor “Lunch met Jan”").check();
   await page.getByRole("button", { name: /^Geen rit/ }).click();
   const toast = page.getByRole("status").filter({ hasText: "Lunch met Jan: geen rit, ook voortaan" });
   await expect(toast).toBeVisible();
@@ -99,6 +103,7 @@ test("'geen rit' kun je ongedaan maken en voortaan onthouden", async ({ page }) 
   expect(await page.evaluate(() => localStorage.getItem("kilometer_skip_titles"))).toBe("[]");
 
   // Nu echt: geen rit, en bij een volgende keer wordt het niet meer gevraagd
+  await page.getByLabel("Voortaan automatisch voor “Lunch met Jan”").check();
   await page.getByRole("button", { name: /^Geen rit/ }).click();
   await page.getByRole("button", { name: "Andere agenda" }).click();
   await page.locator("input[type=file]").setInputFiles({ name: "agenda.ics", mimeType: "text/calendar", buffer: Buffer.from(ICS) });
@@ -138,4 +143,35 @@ test("een rit uitzetten en een afspraak overslaan telt niet mee", async ({ page 
 
   // Alleen maandag heen telt (de lunch is nog een open vraag)
   await expect(page.getByRole("button", { name: "Zet 1 rit in je declaratie" })).toBeEnabled();
+});
+
+test("zonder 'voortaan automatisch' wordt een antwoord niet onthouden", async ({ page }) => {
+  await openWeek(page);
+  await page.getByRole("button", { name: /^Geen rit/ }).click();
+  const toast = page.getByRole("status").filter({ hasText: "Lunch met Jan: geen rit" });
+  await expect(toast).toBeVisible();
+  await expect(toast).not.toContainText("voortaan");
+  expect(await page.evaluate(() => localStorage.getItem("kilometer_skip_titles"))).toBeNull();
+});
+
+test("de terugrit van een dag naar een ander adres laten gaan", async ({ page }) => {
+  await openWeek(page);
+  await leg(page, office, home).click();
+  const panel = page.getByRole("region", { name: new RegExp(`^Rit ${office}.* naar ${home}`) });
+  await expect(panel.getByText("Terug naar: Thuis")).toBeVisible();
+  await panel.getByRole("button", { name: "Ander adres" }).click();
+  await panel.getByRole("combobox", { name: "Terug naar" }).fill("Jaarbeursplein 6");
+  await panel.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
+  await closeSheet(page);
+
+  // Maandag eindigt nu in Utrecht in plaats van thuis
+  await expect(leg(page, office, client)).toBeVisible();
+  await expect(leg(page, office, home)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: `Terugrit naar ${shortName(ADDRESSES.client)}` })).toBeVisible();
+
+  // En weer terugzetten
+  await leg(page, office, client).click();
+  await page.getByRole("button", { name: "Terug naar huis" }).click();
+  await closeSheet(page);
+  await expect(leg(page, office, home)).toBeVisible();
 });

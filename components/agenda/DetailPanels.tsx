@@ -4,7 +4,7 @@ import { useState } from "react";
 import LocationInput from "@/components/LocationInput";
 import KmField from "./KmField";
 import { longDate } from "./QuestionCard";
-import { defaultsFor, eventSpan, fromMin, type Leg, type ManualStop, type PlannedEvent } from "@/lib/dayPlan";
+import { defaultsFor, eventSpan, fromMin, sameLocation as samePlace, type Leg, type ManualStop, type PlannedEvent } from "@/lib/dayPlan";
 import { formatKm } from "@/lib/format";
 import type { Location } from "@/lib/types";
 import type { AgendaImport } from "./useAgendaImport";
@@ -67,7 +67,7 @@ export function EventPanel({ imp, item }: { imp: AgendaImport; item: PlannedEven
   const [client, setClient] = useState(status.kind === "linked" ? status.client : event.title);
   const [billable, setBillable] = useState(status.kind === "linked" ? status.billable : true);
   const [optionsTouched, setOptionsTouched] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const span = eventSpan(event);
   const when = `${longDate(event.date)} · ${event.startTime ? `${fromMin(span.start)}–${fromMin(span.end)}` : "hele dag"}`;
 
@@ -149,6 +149,38 @@ export function EventPanel({ imp, item }: { imp: AgendaImport; item: PlannedEven
 
 // ---------- rit ----------
 
+/** Laatste rit van de dag: standaard naar huis, maar je kunt een ander eindadres kiezen. */
+function ReturnDestination({ imp, leg }: { imp: AgendaImport; leg: Leg }) {
+  const { homeAddress, frequentLocations, setDayEnd, settings } = imp;
+  const [changing, setChanging] = useState(false);
+  const toHome = !!homeAddress && samePlace(leg.to, homeAddress);
+  const choices = [settings.office, ...frequentLocations].filter(
+    (l): l is Location => !!l && !samePlace(l, leg.from) && !samePlace(l, leg.to)
+  );
+
+  return (
+    <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+      <p className="text-sm text-gray-800">
+        Terug naar: <span className="font-medium">{toHome ? "Thuis" : leg.to.shortName}</span>
+      </p>
+      {!changing ? (
+        <div className="flex gap-2 flex-wrap">
+          <button type="button" className={btn} onClick={() => setChanging(true)}>Ander adres</button>
+          {!toHome && homeAddress && (
+            <button type="button" className={btn} onClick={() => setDayEnd(leg.date, null)}>Terug naar huis</button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <LocationInput label="Terug naar" value={null} onChange={(loc) => loc && setDayEnd(leg.date, loc)} homeAddress={homeAddress} />
+          <QuickChips locations={choices.slice(0, 3)} onPick={(l) => setDayEnd(leg.date, l)} />
+          <button type="button" className="text-sm text-gray-700 hover:underline" onClick={() => setChanging(false)}>Annuleren</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LegPanel({ imp, leg }: { imp: AgendaImport; leg: Leg }) {
   const { setLegOverride, manualStops, removeManualStop } = imp;
   const manualStop: ManualStop | undefined = leg.manual
@@ -164,6 +196,8 @@ export function LegPanel({ imp, leg }: { imp: AgendaImport; leg: Leg }) {
           {longDate(leg.date)} · rond {fromMin(leg.departMin)} · voor {leg.purpose}
         </p>
       </div>
+
+      {leg.isReturn && !leg.alreadyAdded && <ReturnDestination imp={imp} leg={leg} />}
 
       {leg.alreadyAdded ? (
         <p className="text-sm text-gray-800">Deze rit staat al in je declaratie en wordt niet nog eens toegevoegd.</p>

@@ -35,7 +35,7 @@ const ICONS = {
 function Question({ imp, item, remaining }: { imp: AgendaImport; item: PlannedEvent; remaining: number }) {
   const { answerQuestion, frequentLocations, settings, homeAddress } = imp;
   const { event } = item;
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [searching, setSearching] = useState(false);
   const span = eventSpan(event);
 
@@ -102,7 +102,7 @@ function Question({ imp, item, remaining }: { imp: AgendaImport; item: PlannedEv
 export default function QuestionCard({ imp }: { imp: AgendaImport }) {
   const { questions, summary, planned } = imp;
   if (questions.length > 0) {
-    // key: bij een nieuwe vraag begint het kaartje opnieuw (checkbox aan, zoekveld dicht)
+    // key: bij een nieuwe vraag begint het kaartje opnieuw (checkbox uit, zoekveld dicht)
     return <Question key={questions[0].event.id} imp={imp} item={questions[0]} remaining={questions.length} />;
   }
   if (planned.length === 0) return null;

@@ -127,6 +127,8 @@ export type Leg = {
   billable: boolean;
   /** Rit naar een zelf toegevoegde tussenstop */
   manual: boolean;
+  /** Laatste rit van de dag: standaard naar huis, maar het eindpunt is aan te passen */
+  isReturn: boolean;
   departMin: number;
   arriveMin: number;
   /** Afstand die gedeclareerd wordt (eigen invoer of route) */
@@ -155,7 +157,9 @@ export function planDay(
   home: Location,
   lookup: RouteLookup,
   overrides: Record<string, LegOverride>,
-  existingTrips: Pick<Trip, "date" | "locationA" | "locationB">[]
+  existingTrips: Pick<Trip, "date" | "locationA" | "locationB">[],
+  /** Waar de dag eindigt als dat niet thuis is (bijv. een ander adres na je laatste afspraak) */
+  endLocation: Location = home
 ): Leg[] {
   const stops: Stop[] = [];
   for (const { event, status } of events) {
@@ -195,7 +199,7 @@ export function planDay(
     const o = overrides[key] ?? {};
     legs.push({
       key, date, from, to,
-      purpose: dest.purpose, client: dest.client, billable: dest.billable, manual: !toHome && dest.manual,
+      purpose: dest.purpose, client: dest.client, billable: dest.billable, manual: !toHome && dest.manual, isReturn: toHome,
       departMin, arriveMin,
       km: o.km ?? info?.km ?? null,
       routeKm: info?.km ?? null,
@@ -216,7 +220,7 @@ export function planDay(
   }
   const last = stops[stops.length - 1];
   // De terugrit hoort bij de laatste afspraak van de dag (zelfde doel en klant)
-  addLeg(current, home, { ...last, end: lastEnd }, true, lastEnd);
+  addLeg(current, endLocation, { ...last, end: lastEnd }, true, lastEnd);
   return legs;
 }
 

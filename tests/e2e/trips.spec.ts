@@ -129,3 +129,27 @@ test("opent op vorige maand als die nog open staat en deze maand leeg is", async
   await seed(page, { ...DEFAULT_SEED, trips: roundTrip("2026-10-30") });
   await expect(page.getByRole("heading", { name: "Oktober 2026" })).toBeVisible();
 });
+
+test("heen en terug met de terugrit naar een ander adres", async ({ page }) => {
+  await seed(page, DEFAULT_SEED);
+  await page.getByRole("button", { name: /^Voeg een rit toe/ }).click();
+  const form = page.getByRole("form", { name: "Rit toevoegen" });
+  await form.getByRole("button", { name: "Kantoor" }).nth(1).click();
+  await form.getByLabel("Waarvoor?").fill("Kantoordag");
+  await expect(form.getByText("Terug naar: Thuis")).toBeVisible();
+
+  await form.getByRole("button", { name: "Ander adres" }).click();
+  await form.getByRole("combobox", { name: "Terug naar" }).fill("Jaarbeursplein 6");
+  await form.getByRole("option", { name: /Jaarbeursplein 6, Utrecht/ }).click();
+  const backKm = fakeRouteKm(ADDRESSES.office, ADDRESSES.client);
+  await expect(form.getByLabel("Afstand terug")).toHaveValue(nl(backKm));
+  await form.getByLabel("Afstand terug").fill("40");
+  await form.getByRole("button", { name: "Heen en terug toevoegen" }).click();
+
+  const trips = await storedTrips(page);
+  expect(trips.map((t) => `${t.locationA.shortName} → ${t.locationB.shortName} ${t.distanceKm}`)).toEqual([
+    `Dam 1, Amsterdam → Coolsingel 40, Rotterdam ${fakeRouteKm(ADDRESSES.home, ADDRESSES.office)}`,
+    "Coolsingel 40, Rotterdam → Jaarbeursplein 6, Utrecht 40",
+  ]);
+  await expect(page.getByRole("button", { name: /Thuis → Kantoor → Jaarbeursplein 6/ })).toBeVisible();
+});

@@ -3,12 +3,12 @@
 import { useState, useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import LocationInput from "./LocationInput";
+import { KmRow, useRouteDistance } from "./useRouteDistance";
 import { getRouteWithGeometry } from "@/lib/osrm";
 import { loadHomeAddress, saveHomeAddress, loadSettings, updateSettings, SETTINGS_EVENT } from "@/lib/storage";
 import { todayLocal } from "@/lib/date";
 import { tripRate } from "@/lib/export";
-import { formatKm, parseKm } from "@/lib/format";
-import type { Location, Trip, RouteData } from "@/lib/types";
+import type { Location, Trip } from "@/lib/types";
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
 
@@ -26,6 +26,7 @@ type Props = {
 
 const input = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const label = "block text-sm font-medium text-gray-800 mb-1";
+const smallBtn = "px-2.5 py-1 border border-gray-300 rounded-lg text-xs text-gray-800 bg-white hover:bg-gray-50";
 
 /** Wordt alleen in de browser getoond (in een paneel), dus localStorage mag in de beginwaarden. */
 export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, initialName }: Props) {
@@ -39,15 +40,16 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
   const [locB, setLocB] = useState<Location | null>(editing?.locationB ?? null);
   const [declared, setDeclared] = useState(!!editing?.declaredAt);
   const [retour, setRetour] = useState(!isEditing);
-  // Afstand: automatisch uit de route, tenzij zelf ingevuld (of de opgeslagen waarde van een bewerkte rit)
-  const [kmManual, setKmManual] = useState(isEditing);
-  const [kmInput, setKmInput] = useState(editing ? formatKm(editing.distanceKm) : "");
-  // Route hoort bij een van/naar-paar; bij een ander paar is hij vanzelf ongeldig
-  const [route, setRoute] = useState<{ key: string; data?: RouteData; error?: string } | null>(null);
+  // Terugrit: standaard naar het vertrekadres, maar je kunt een ander adres kiezen
+  const [returnTo, setReturnTo] = useState<Location | null>(null);
+  const [choosingReturn, setChoosingReturn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [homeAddress, setHomeAddress] = useState<Location | null>(loadHomeAddress);
   const uid = useId();
-  const ids = { name: `${uid}-name`, date: `${uid}-date`, purpose: `${uid}-purpose`, client: `${uid}-client`, km: `${uid}-km`, kmHint: `${uid}-km-hint` };
+  const ids = { name: `${uid}-name`, date: `${uid}-date`, purpose: `${uid}-purpose`, client: `${uid}-client`, km: `${uid}-km`, kmBack: `${uid}-km-back` };
+
+  const out = useRouteDistance(locA, locB, editing ? editing.distanceKm : undefined);
+  const back = useRouteDistance(retour && returnTo ? locB : null, retour ? returnTo : null);
 
   useEffect(() => {
     const sync = () => setHomeAddress(loadHomeAddress());
@@ -55,38 +57,16 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
     return () => window.removeEventListener(SETTINGS_EVENT, sync);
   }, []);
 
-  const changeLocA = (loc: Location | null) => { setLocA(loc); setKmManual(false); };
-  const changeLocB = (loc: Location | null) => { setLocB(loc); setKmManual(false); };
-  const handleKmInput = (value: string) => { setKmInput(value); setKmManual(true); };
   const handleSaveHome = (loc: Location) => { saveHomeAddress(loc); setHomeAddress(loc); };
-
-  const pairKey = locA && locB ? `${locA.lat},${locA.lon}>${locB.lat},${locB.lon}` : null;
-  const current = route && route.key === pairKey ? route : null;
-  const routeAB = current?.data ?? null;
-  const routeError = current?.error ?? null;
-  const routeLoading = !!pairKey && !current;
+  const placeName = (l: Location) => (homeAddress && l.shortName === homeAddress.shortName ? "Thuis" : l.shortName);
 
   const effectiveName = name.trim();
-  const routeKm = routeAB?.distanceKm ?? null;
-  const km = kmManual ? parseKm(kmInput) : routeKm;
-  const kmDisplay = kmManual ? kmInput : routeKm !== null ? formatKm(routeKm) : "";
-  const kmInvalid = kmManual && kmInput.trim() !== "" && km === null;
-
-  useEffect(() => {
-    if (!pairKey || !locA || !locB) return;
-    let cancelled = false;
-    getRouteWithGeometry(locA, locB)
-      .then((data) => !cancelled && setRoute({ key: pairKey, data }))
-      .catch((err) => !cancelled && setRoute({ key: pairKey, error: err instanceof Error ? err.message : "Route ophalen mislukt" }));
-    return () => { cancelled = true; };
-    // pairKey bevat locA en locB
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pairKey]);
-
-  const canSubmit = !!locA && !!locB && km !== null && !!date && !!effectiveName && !!purpose.trim() && !submitting;
+  const backOk = !retour || !returnTo || back.km !== null;
+  const canSubmit = !!locA && !!locB && out.km !== null && backOk && !!date && !!effectiveName && !!purpose.trim() && !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const km = out.km;
     if (!canSubmit || !locA || !locB || km === null) return;
     setSubmitting(true);
     if (!loadSettings().userName) updateSettings({ userName: effectiveName });
@@ -109,16 +89,20 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
     });
     const trips = [make(locA, locB, km)];
     if (retour) {
-      // Zelf ingevulde afstand geldt ook terug; anders de terugroute berekenen (valt terug op de heenweg)
-      let back = km;
-      if (!kmManual) {
-        try {
-          back = (await getRouteWithGeometry(locB, locA)).distanceKm;
-        } catch {
-          back = km;
+      if (returnTo) {
+        trips.push(make(locB, returnTo, back.km!));
+      } else {
+        // Terug naar het vertrekadres: zelf ingevulde afstand geldt ook terug, anders de terugroute (valt terug op de heenweg)
+        let backKm = km;
+        if (!out.manual) {
+          try {
+            backKm = (await getRouteWithGeometry(locB, locA)).distanceKm;
+          } catch {
+            backKm = km;
+          }
         }
+        trips.push(make(locB, locA, backKm));
       }
-      trips.push(make(locB, locA, back));
     }
     onAdd(trips);
   }
@@ -136,44 +120,44 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
         </div>
       </div>
 
-      <LocationInput label="Van" value={locA} onChange={changeLocA} disabled={submitting} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
-      <LocationInput label="Naar" value={locB} onChange={changeLocB} disabled={submitting} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+      <LocationInput label="Van" value={locA} onChange={setLocA} disabled={submitting} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+      <LocationInput label="Naar" value={locB} onChange={setLocB} disabled={submitting} homeAddress={homeAddress} onSaveHome={handleSaveHome} />
+      <KmRow id={ids.km} label="Afstand" d={out} />
 
-      {/* Afstand: berekend, aan te passen */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <label htmlFor={ids.km} className="text-sm font-medium text-gray-800">Afstand</label>
-        <div className="relative">
-          <input
-            id={ids.km}
-            type="text"
-            inputMode="decimal"
-            value={kmDisplay}
-            onChange={(e) => handleKmInput(e.target.value)}
-            placeholder={routeLoading ? "…" : "0,0"}
-            aria-describedby={ids.kmHint}
-            aria-invalid={kmInvalid}
-            className={`w-24 rounded-lg border px-3 py-1.5 pr-9 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${kmInvalid ? "border-red-400" : "border-gray-300"}`}
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">km</span>
-        </div>
-        <p id={ids.kmHint} className={`text-xs ${kmInvalid || (routeError && !kmManual) ? "text-orange-700" : "text-gray-600"}`} aria-live="polite">
-          {routeLoading && !kmManual ? "Route berekenen…"
-            : kmInvalid ? "Vul een afstand in, bijv. 12,5"
-            : routeError && !kmManual ? "Route niet gevonden. Vul de afstand zelf in."
-            : kmManual && routeKm !== null && km !== routeKm ? (
-              <>
-                Zelf aangepast (route: {formatKm(routeKm)} km).{" "}
-                <button type="button" onClick={() => setKmManual(false)} className="text-blue-700 hover:underline">Route gebruiken</button>
-              </>
-            )
-            : routeKm !== null && !kmManual ? "Berekend via OpenStreetMap. Je kunt het aanpassen."
-            : null}
-        </p>
-      </div>
-
-      {routeAB && locA && locB && (
+      {out.routeData && locA && locB && (
         <div className="rounded-lg overflow-hidden">
-          <RouteMap route={routeAB} locationA={locA} locationB={locB} />
+          <RouteMap route={out.routeData} locationA={locA} locationB={locB} />
+        </div>
+      )}
+
+      {!isEditing && (
+        <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-800">
+            <input type="checkbox" checked={retour} onChange={(e) => setRetour(e.target.checked)} className="w-4 h-4 rounded border-gray-300" />
+            Heen en terug
+          </label>
+          {retour && (
+            <>
+              <p className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
+                Terug naar: <span className="font-medium text-gray-900">{returnTo ? returnTo.shortName : locA ? placeName(locA) : "het vertrekadres"}</span>
+                {!choosingReturn && (
+                  <button type="button" className={smallBtn} onClick={() => setChoosingReturn(true)}>Ander adres</button>
+                )}
+                {returnTo && (
+                  <button type="button" className={smallBtn} onClick={() => { setReturnTo(null); setChoosingReturn(false); }}>
+                    Terug naar {locA ? placeName(locA) : "vertrekadres"}
+                  </button>
+                )}
+              </p>
+              {choosingReturn && !returnTo && (
+                <div className="space-y-1">
+                  <LocationInput label="Terug naar" value={null} onChange={(loc) => loc && setReturnTo(loc)} homeAddress={homeAddress} />
+                  <button type="button" className="text-xs text-gray-700 hover:underline" onClick={() => setChoosingReturn(false)}>Annuleren</button>
+                </div>
+              )}
+              {returnTo && <KmRow id={ids.kmBack} label="Afstand terug" d={back} />}
+            </>
+          )}
         </div>
       )}
 
@@ -205,10 +189,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
             Gedeclareerd
           </label>
         ) : (
-          <label className="flex items-center gap-2 text-sm text-gray-800">
-            <input type="checkbox" checked={retour} onChange={(e) => setRetour(e.target.checked)} className="w-4 h-4 rounded border-gray-300" />
-            Heen en terug
-          </label>
+          <span />
         )}
         <button
           type="submit"

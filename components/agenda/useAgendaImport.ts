@@ -78,6 +78,8 @@ export function useAgendaImport() {
   const [geocoded, setGeocoded] = useState<Record<string, Location | null>>({});
   const [routes, setRoutes] = useState<Record<string, RouteInfo | "error">>({});
   const [manualStops, setManualStops] = useState<ManualStop[]>([]);
+  /** Per dag: waar de laatste rit naartoe gaat als dat niet thuis is */
+  const [dayEnds, setDayEnds] = useState<Record<string, Location>>({});
   const [legOverrides, setLegOverrides] = useState<Record<string, LegOverride>>({});
   const [selection, setSelection] = useState<Selection>(null);
   const [lastAction, setLastAction] = useState<LastAction | null>(null);
@@ -110,6 +112,7 @@ export function useAgendaImport() {
     setAllEvents(events);
     setDecisions({});
     setManualStops([]);
+    setDayEnds({});
     setLegOverrides({});
     setSelection(null);
     setLastAction(null);
@@ -232,8 +235,10 @@ export function useAgendaImport() {
   const legs = useMemo(() => {
     if (!homeAddress) return [];
     const lookup: RouteLookup = (a, b) => routes[routeKey(a, b)] ?? "loading";
-    return days.flatMap((d) => planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips));
-  }, [days, planned, manualStops, homeAddress, routes, legOverrides, existingTrips]);
+    return days.flatMap((d) =>
+      planDay(d, planned, manualStops, homeAddress, lookup, legOverrides, existingTrips, dayEnds[d] ?? homeAddress)
+    );
+  }, [days, planned, manualStops, homeAddress, routes, legOverrides, existingTrips, dayEnds]);
 
   const summary = useMemo(() => weekSummary(legs), [legs]);
 
@@ -372,6 +377,28 @@ export function useAgendaImport() {
     });
   }
 
+  /** Waar je die dag na je laatste afspraak naartoe reed; null = gewoon naar huis. */
+  function setDayEnd(date: string, location: Location | null) {
+    const previous = dayEnds[date] ?? null;
+    const apply = (loc: Location | null) =>
+      setDayEnds((prev) => {
+        const next = { ...prev };
+        if (loc) next[date] = loc;
+        else delete next[date];
+        return next;
+      });
+    apply(location);
+    setSelection(null);
+    setLastAction({
+      id: ++actionId.current,
+      message: location ? `Terugrit naar ${location.shortName}` : "Terugrit weer naar huis",
+      undo: () => {
+        apply(previous);
+        setLastAction(null);
+      },
+    });
+  }
+
   function removeManualStop(id: string) {
     setManualStops((prev) => prev.filter((m) => m.id !== id));
     setSelection(null);
@@ -457,6 +484,7 @@ export function useAgendaImport() {
     setLegOverride,
     addManualStop,
     removeManualStop,
+    setDayEnd,
     handleConfirm,
     addedMessage,
     confirmError,

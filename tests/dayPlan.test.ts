@@ -164,3 +164,17 @@ describe("pickStartWeek en labels", () => {
     expect(rangeLabel("2026-09-28", "2026-10-02")).toBe("28 sep – 2 okt");
   });
 });
+
+describe("terugrit naar een ander adres", () => {
+  it("laat de dag eindigen op het opgegeven adres", () => {
+    const legs = planDay(DATE, [plan(ev("Kantoordag", "09:00", "17:00"))], [], HOME, lookup, {}, [], POMP);
+    expect(legs.map((l) => `${l.from.shortName}→${l.to.shortName}${l.isReturn ? " (terug)" : ""}`)).toEqual([
+      "Thuis→Kantoor", "Kantoor→Tankstation (terug)",
+    ]);
+    expect(legs[1]).toMatchObject({ purpose: "Kantoordag", departMin: toMin("17:00") });
+  });
+  it("standaard gaat de terugrit naar huis", () => {
+    const legs = planDay(DATE, [plan(ev("Kantoordag", "09:00", "17:00"))], [], HOME, lookup, {}, []);
+    expect(legs.at(-1)).toMatchObject({ isReturn: true, to: HOME });
+  });
+});

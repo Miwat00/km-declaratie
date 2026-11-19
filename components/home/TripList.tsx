@@ -30,7 +30,8 @@ type Props = {
 export default function TripList({ trips, home, office, showNames, onAdd, onEdit, onDelete }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const place = (l: Location) =>
-    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName;
+    // Thuis en kantoor altijd met het actuele adres uit je instellingen
+    home && samePlace(l, home) ? home.shortName : office && samePlace(l, office) ? office.shortName : l.shortName;
 
   const list = [...journeys(trips)].reverse(); // nieuwste eerst
   const weeks = new Map<string, Journey[]>();

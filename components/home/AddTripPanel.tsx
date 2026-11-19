@@ -22,7 +22,8 @@ export default function AddTripPanel({ rate, userName, routes, home, office, onA
   const [name, setName] = useState(userName);
   const [showForm, setShowForm] = useState(routes.length === 0);
   const place = (l: Location) =>
-    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName;
+    // Thuis en kantoor altijd met het actuele adres uit je instellingen
+    home && samePlace(l, home) ? home.shortName : office && samePlace(l, office) ? office.shortName : l.shortName;
 
   function addRoute(r: FrequentRoute) {
     if (!name.trim()) return;

@@ -58,7 +58,7 @@ export default function TripForm({ rate, onAdd, editing, onUpdate, initialDate, 
   }, []);
 
   const handleSaveHome = (loc: Location) => { saveHomeAddress(loc); setHomeAddress(loc); };
-  const placeName = (l: Location) => (homeAddress && l.shortName === homeAddress.shortName ? "Thuis" : l.shortName);
+  const placeName = (l: Location) => l.shortName;
 
   const effectiveName = name.trim();
   const backOk = !retour || !returnTo || back.km !== null;

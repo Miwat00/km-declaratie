@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { upgradeHomeAndOffice } from "@/lib/addressUpgrade";
 import InstallPrompt from "@/components/InstallPrompt";
 import SettingsPanel from "@/components/SettingsPanel";
 import PrintView from "@/components/PrintView";
@@ -50,6 +51,12 @@ export default function Home() {
     setMonth(pickStartMonth(todayLocal(), stored));
     reloadSettings();
     setMounted(true);
+    // Oude thuis- en kantooradressen eenmalig aanvullen met postcode
+    upgradeHomeAndOffice().then((changed) => {
+      if (!changed) return;
+      setTrips(loadTrips());
+      reloadSettings();
+    });
     const added = new URLSearchParams(window.location.search).get("added");
     if (added) {
       setNotice({ id: Date.now(), message: `${added} ${Number(added) === 1 ? "rit" : "ritten"} toegevoegd vanuit je agenda` });

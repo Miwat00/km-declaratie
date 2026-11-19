@@ -98,3 +98,14 @@ export async function searchLocations(query: string): Promise<Location[]> {
     shortName: buildShortName(item),
   }));
 }
+
+/** Adres bij coördinaten (omgekeerd zoeken), in hetzelfde formaat als de zoekresultaten. */
+export async function reverseLocation(lat: number, lon: number): Promise<Location | null> {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), format: "json", addressdetails: "1", zoom: "18" });
+  await throttle();
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, { headers: { "Accept-Language": "nl" } });
+  if (!res.ok) return null;
+  const item: NominatimResult & { error?: string } = await res.json();
+  if (item.error || !item.address) return null;
+  return { lat, lon, displayName: item.display_name, shortName: buildShortName(item) };
+}

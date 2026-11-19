@@ -171,7 +171,7 @@ test("de terugrit van een dag naar een ander adres laten gaan", async ({ page })
   await openWeek(page);
   await leg(page, office, home).click();
   const panel = page.getByRole("region", { name: new RegExp(`^Rit ${office}.* naar ${home}`) });
-  await expect(panel.getByText("Terug naar: Thuis")).toBeVisible();
+  await expect(panel.getByText(`Terug naar: ${home}`)).toBeVisible();
   await panel.getByRole("button", { name: "Ander adres" }).click();
   await panel.getByRole("combobox", { name: "Terug naar" }).fill("Jaarbeursplein 6");
   await panel.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
@@ -268,7 +268,7 @@ test("de eerste rit van een dag vanaf een ander adres laten vertrekken", async (
   await openWeek(page);
   await leg(page, home, office).click();
   const panel = page.getByRole("region", { name: new RegExp(`^Rit ${home}.* naar ${office}`) });
-  await expect(panel.getByText("Vertrek vanaf: Thuis")).toBeVisible();
+  await expect(panel.getByText(`Vertrek vanaf: ${home}`)).toBeVisible();
   await panel.getByRole("button", { name: "Ander adres" }).click();
   await panel.getByRole("combobox", { name: "Vertrek vanaf" }).fill("Jaarbeursplein 6");
   await panel.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();

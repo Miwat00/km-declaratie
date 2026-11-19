@@ -35,7 +35,7 @@ test("eerste rit: heen en terug toevoegen en ongedaan maken", async ({ page }) =
   await expect(form.getByLabel("Heen en terug")).toBeChecked();
   await form.getByRole("button", { name: "Heen en terug toevoegen" }).click();
 
-  await expect(page.getByRole("button", { name: /Thuis ⇄ Kantoor/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam ⇄ Coolsingel 40, 3011 AD Rotterdam/ })).toBeVisible();
   const trips = await storedTrips(page);
   expect(trips.map((t) => [t.date, t.name, t.purpose, t.distanceKm, t.billable])).toEqual([
     ["2026-11-11", "Sam Tester", "Teamoverleg", km, false],
@@ -72,7 +72,7 @@ test("vaak gereden route met één tik, met eigen naam", async ({ page }) => {
   const panel = page.getByRole("dialog", { name: "Rit toevoegen" });
   await expect(panel.getByLabel("Naam")).toHaveValue("Sam Tester");
   await panel.getByLabel("Naam").fill("Collega Kim");
-  await panel.getByRole("button", { name: /Thuis ⇄ Kantoor/ }).click();
+  await panel.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam ⇄ Coolsingel 40, 3011 AD Rotterdam/ }).click();
 
   const added = (await storedTrips(page)).slice(4);
   expect(added.map((t) => `${t.date} ${t.name} ${t.distanceKm}`)).toEqual(["2026-11-11 Collega Kim 46.5", "2026-11-11 Collega Kim 46.5"]);
@@ -83,8 +83,8 @@ test("vaak gereden route met één tik, met eigen naam", async ({ page }) => {
 test("een rit bewerken en een reis verwijderen", async ({ page }) => {
   await seed(page, { ...DEFAULT_SEED, trips: [...roundTrip("2026-11-02"), trip("c1", "2026-11-03", HOME, CLIENT, 22, { purpose: "Kick-off" })] });
 
-  await page.getByRole("button", { name: /Thuis ⇄ Kantoor/ }).click();
-  await page.getByRole("button", { name: "Bewerken rit Kantoor naar Thuis" }).click();
+  await page.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam ⇄ Coolsingel 40, 3011 AD Rotterdam/ }).click();
+  await page.getByRole("button", { name: "Bewerken rit Coolsingel 40, 3011 AD Rotterdam naar Dam 1, 1012 JS Amsterdam" }).click();
   const form = page.getByRole("form", { name: "Rit bewerken" });
   await form.getByLabel("Afstand").fill("50");
   await form.getByLabel("Waarvoor?").fill("Kantoordag (omweg)");
@@ -92,7 +92,7 @@ test("een rit bewerken en een reis verwijderen", async ({ page }) => {
   const edited = (await storedTrips(page)).find((t) => t.id === "2026-11-02-b")!;
   expect(edited).toMatchObject({ distanceKm: 50, purpose: "Kantoordag (omweg)", amount: 11.5, rate: 0.23 });
 
-  await page.getByRole("button", { name: /Thuis → Jaarbeursplein 6/ }).click();
+  await page.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam → Jaarbeursplein 6/ }).click();
   await page.getByRole("button", { name: "Verwijderen", exact: true }).click();
   expect((await storedTrips(page)).map((t) => t.id)).not.toContain("c1");
   await page.getByRole("status").getByRole("button", { name: "Ongedaan maken" }).click();
@@ -136,7 +136,7 @@ test("heen en terug met de terugrit naar een ander adres", async ({ page }) => {
   const form = page.getByRole("form", { name: "Rit toevoegen" });
   await form.getByRole("button", { name: "Kantoor" }).nth(1).click();
   await form.getByLabel("Waarvoor?").fill("Kantoordag");
-  await expect(form.getByText("Terug naar: Thuis")).toBeVisible();
+  await expect(form.getByText("Terug naar: Dam 1, 1012 JS Amsterdam")).toBeVisible();
 
   await form.getByRole("button", { name: "Ander adres" }).click();
   await form.getByRole("combobox", { name: "Terug naar" }).fill("Jaarbeursplein 6");
@@ -151,5 +151,17 @@ test("heen en terug met de terugrit naar een ander adres", async ({ page }) => {
     `Dam 1, 1012 JS Amsterdam → Coolsingel 40, 3011 AD Rotterdam ${fakeRouteKm(ADDRESSES.home, ADDRESSES.office)}`,
     "Coolsingel 40, 3011 AD Rotterdam → Jaarbeursplein 6, 3521 AL Utrecht 40",
   ]);
-  await expect(page.getByRole("button", { name: /Thuis → Kantoor → Jaarbeursplein 6/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam → Coolsingel 40, 3011 AD Rotterdam → Jaarbeursplein 6/ })).toBeVisible();
+});
+
+test("oude adressen zonder postcode worden eenmalig aangevuld, ook in eerdere ritten", async ({ page }) => {
+  const oldHome = { ...HOME, shortName: "Dam 1, Amsterdam" };
+  await seed(page, { ...DEFAULT_SEED, home: oldHome, trips: [trip("x", "2026-11-09", oldHome, OFFICE)] });
+  await expect(page.getByRole("button", { name: /Dam 1, 1012 JS Amsterdam → Coolsingel 40, 3011 AD Rotterdam/ })).toBeVisible();
+  const stored = await page.evaluate(() => ({
+    home: JSON.parse(localStorage.getItem("kilometer_home_address") ?? "null"),
+    trips: JSON.parse(localStorage.getItem("kilometer_trips") ?? "[]"),
+  }));
+  expect(stored.home.shortName).toBe("Dam 1, 1012 JS Amsterdam");
+  expect(stored.trips[0].locationA.shortName).toBe("Dam 1, 1012 JS Amsterdam");
 });

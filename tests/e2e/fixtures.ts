@@ -50,6 +50,20 @@ async function mockMapServices(page: Page): Promise<MapServices> {
     });
   });
 
+  // Omgekeerd zoeken (coördinaten → adres), voor het aanvullen van oude adressen met postcode
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", (route) => {
+    const p = new URL(route.request().url()).searchParams;
+    const a = Object.values(ADDRESSES).find((x) => Math.abs(x.lat - Number(p.get("lat"))) < 1e-4 && Math.abs(x.lon - Number(p.get("lon"))) < 1e-4);
+    if (!a) return route.fulfill({ json: { error: "Unable to geocode" } });
+    return route.fulfill({
+      json: {
+        place_id: 1, lat: String(a.lat), lon: String(a.lon), type: "house", class: "place",
+        display_name: `${a.house_number}, ${a.road}, ${a.city}, ${a.postcode}, Nederland`,
+        address: { road: a.road, house_number: a.house_number, postcode: a.postcode, city: a.city },
+      },
+    });
+  });
+
   await page.route("https://router.project-osrm.org/route/**", (route) => {
     if (failRouting) return route.abort("internetdisconnected");
     const coords = new URL(route.request().url()).pathname.split("/").pop()!;

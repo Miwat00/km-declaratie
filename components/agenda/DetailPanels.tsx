@@ -170,7 +170,7 @@ function DayEndpoint({ imp, leg, kind }: { imp: AgendaImport; leg: Leg; kind: "s
   return (
     <div className="rounded-lg bg-gray-50 p-3 space-y-2">
       <p className="text-sm text-gray-800">
-        {label}: <span className="font-medium">{atHome ? "Thuis" : point.shortName}</span>
+        {label}: <span className="font-medium">{point.shortName}</span>
       </p>
       {!changing ? (
         <div className="flex gap-2 flex-wrap">

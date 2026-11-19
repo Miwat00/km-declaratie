@@ -18,7 +18,7 @@ const ICS = [
 
 const CRLF = String.fromCharCode(13, 10);
 const nl = (n: number) => n.toFixed(1).replace(".", ",");
-const first = (a: (typeof ADDRESSES)[keyof typeof ADDRESSES]) => shortName(a).split(",")[0];
+const first = (a: (typeof ADDRESSES)[keyof typeof ADDRESSES]) => shortName(a);
 const home = first(ADDRESSES.home);
 const office = first(ADDRESSES.office);
 const client = first(ADDRESSES.client);
@@ -70,7 +70,7 @@ test("week afronden: vraag beantwoorden, tussenstop toevoegen en in de declarati
   await page.getByRole("combobox", { name: "Ander adres" }).fill("Jaarbeursplein 6, Utrecht");
   await page.getByRole("option", { name: new RegExp(shortName(ADDRESSES.client)) }).click();
   await expect(page.getByRole("heading", { name: "Je week is klaar" })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Lunch met Jan: Jaarbeursplein 6, Utrecht, ook voortaan" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Lunch met Jan: Jaarbeursplein 6, 3521 AL Utrecht, ook voortaan" })).toBeVisible();
   await expect(leg(page, home, client)).toHaveCount(2); // dinsdag (workshop) en donderdag (lunch)
 
   // Zelf een tussenstop toevoegen op woensdag

@@ -30,7 +30,7 @@ type Props = {
 export default function TripList({ trips, home, office, showNames, onAdd, onEdit, onDelete }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const place = (l: Location) =>
-    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName.split(",")[0];
+    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName;
 
   const list = [...journeys(trips)].reverse(); // nieuwste eerst
   const weeks = new Map<string, Journey[]>();
@@ -68,7 +68,7 @@ export default function TripList({ trips, home, office, showNames, onAdd, onEdit
                   >
                     <span className="w-10 flex-shrink-0 text-xs text-gray-600">{dayLabel(j.date)}</span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm text-gray-900 truncate">{journeyLabel(j, place)}</span>
+                      <span className="block text-sm text-gray-900 line-clamp-2">{journeyLabel(j, place)}</span>
                       <span className="block text-xs text-gray-600 truncate">{sub}</span>
                     </span>
                     <span className="flex-shrink-0 text-sm text-gray-900 tabular-nums">
@@ -84,7 +84,7 @@ export default function TripList({ trips, home, office, showNames, onAdd, onEdit
                     <div className="mb-2 ml-11 rounded-lg bg-gray-50 p-2 space-y-1">
                       {j.trips.map((t) => (
                         <div key={t.id} className="flex items-center gap-2 text-xs text-gray-800">
-                          <span className="flex-1 min-w-0 truncate">
+                          <span className="flex-1 min-w-0 break-words">
                             {place(t.locationA)} → {place(t.locationB)} · {formatKm(t.distanceKm)} km
                           </span>
                           <button type="button" onClick={() => onEdit(t)} className="px-2 py-1 rounded text-blue-700 hover:bg-blue-50">

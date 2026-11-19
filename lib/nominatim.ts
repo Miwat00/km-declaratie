@@ -10,6 +10,7 @@ type NominatimAddress = {
   town?: string;
   village?: string;
   municipality?: string;
+  postcode?: string;
 };
 
 type NominatimResult = {
@@ -22,20 +23,24 @@ type NominatimResult = {
   address?: NominatimAddress;
 };
 
-function buildShortName(result: NominatimResult): string {
+/** Volledig adres zoals een kaartenapp het toont: "Tuinstraat 3, 2514 BX Den Haag". */
+export function buildShortName(result: Pick<NominatimResult, "display_name" | "address">): string {
   const a = result.address;
   if (!a) return result.display_name.split(",")[0].trim();
 
   const street = a.road || a.pedestrian || a.footway || a.path;
   const number = a.house_number;
   const city = a.city || a.town || a.village || a.municipality;
+  // Nederlandse postcodes met spatie: "2514BX" → "2514 BX"
+  const postcode = a.postcode?.trim().replace(/^(\d{4})\s*([A-Za-z]{2})$/, (_, d, l) => `${d} ${l.toUpperCase()}`);
 
   const parts: string[] = [];
   if (street && number) parts.push(`${street} ${number}`);
   else if (street) parts.push(street);
   else parts.push(result.display_name.split(",")[0].trim());
 
-  if (city) parts.push(city);
+  const place = [postcode, city].filter(Boolean).join(" ");
+  if (place) parts.push(place);
 
   return parts.join(", ");
 }

@@ -27,7 +27,7 @@ test("eerste rit: heen en terug toevoegen en ongedaan maken", async ({ page }) =
 
   const form = page.getByRole("form", { name: "Rit toevoegen" });
   await expect(form.getByLabel("Naam")).toHaveValue("Sam Tester");
-  await expect(form.getByRole("combobox", { name: "Van" })).toHaveValue("Dam 1, Amsterdam");
+  await expect(form.getByRole("combobox", { name: "Van" })).toHaveValue("Dam 1, 1012 JS Amsterdam");
   await form.getByRole("button", { name: "Kantoor" }).nth(1).click(); // bij "Naar"
   const km = fakeRouteKm(ADDRESSES.home, ADDRESSES.office);
   await expect(form.getByLabel("Afstand")).toHaveValue(nl(km));
@@ -140,7 +140,7 @@ test("heen en terug met de terugrit naar een ander adres", async ({ page }) => {
 
   await form.getByRole("button", { name: "Ander adres" }).click();
   await form.getByRole("combobox", { name: "Terug naar" }).fill("Jaarbeursplein 6");
-  await form.getByRole("option", { name: /Jaarbeursplein 6, Utrecht/ }).click();
+  await form.getByRole("option", { name: /Jaarbeursplein 6, 3521 AL Utrecht/ }).click();
   const backKm = fakeRouteKm(ADDRESSES.office, ADDRESSES.client);
   await expect(form.getByLabel("Afstand terug")).toHaveValue(nl(backKm));
   await form.getByLabel("Afstand terug").fill("40");
@@ -148,8 +148,8 @@ test("heen en terug met de terugrit naar een ander adres", async ({ page }) => {
 
   const trips = await storedTrips(page);
   expect(trips.map((t) => `${t.locationA.shortName} → ${t.locationB.shortName} ${t.distanceKm}`)).toEqual([
-    `Dam 1, Amsterdam → Coolsingel 40, Rotterdam ${fakeRouteKm(ADDRESSES.home, ADDRESSES.office)}`,
-    "Coolsingel 40, Rotterdam → Jaarbeursplein 6, Utrecht 40",
+    `Dam 1, 1012 JS Amsterdam → Coolsingel 40, 3011 AD Rotterdam ${fakeRouteKm(ADDRESSES.home, ADDRESSES.office)}`,
+    "Coolsingel 40, 3011 AD Rotterdam → Jaarbeursplein 6, 3521 AL Utrecht 40",
   ]);
   await expect(page.getByRole("button", { name: /Thuis → Kantoor → Jaarbeursplein 6/ })).toBeVisible();
 });

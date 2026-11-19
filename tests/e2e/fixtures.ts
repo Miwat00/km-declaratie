@@ -5,14 +5,15 @@ import { test as base, expect, type Page } from "@playwright/test";
  * dat houdt ze snel en voorspelbaar, en belast de gratis servers niet.
  */
 export const ADDRESSES = {
-  home: { q: "Dam 1", lat: 52.373, lon: 4.8925, road: "Dam", house_number: "1", city: "Amsterdam" },
-  office: { q: "Coolsingel 40", lat: 51.9227, lon: 4.4792, road: "Coolsingel", house_number: "40", city: "Rotterdam" },
-  client: { q: "Jaarbeursplein 6", lat: 52.0883, lon: 5.1112, road: "Jaarbeursplein", house_number: "6", city: "Utrecht" },
+  home: { q: "Dam 1", lat: 52.373, lon: 4.8925, road: "Dam", house_number: "1", postcode: "1012 JS", city: "Amsterdam" },
+  office: { q: "Coolsingel 40", lat: 51.9227, lon: 4.4792, road: "Coolsingel", house_number: "40", postcode: "3011 AD", city: "Rotterdam" },
+  client: { q: "Jaarbeursplein 6", lat: 52.0883, lon: 5.1112, road: "Jaarbeursplein", house_number: "6", postcode: "3521 AL", city: "Utrecht" },
 } as const;
 
 type Address = (typeof ADDRESSES)[keyof typeof ADDRESSES];
 
-export const shortName = (a: Address) => `${a.road} ${a.house_number}, ${a.city}`;
+/** Zoals de app een gekozen adres toont: straat, huisnummer, postcode en plaats. */
+export const shortName = (a: Address) => `${a.road} ${a.house_number}, ${a.postcode} ${a.city}`;
 
 /** Afstand die de nep-OSRM teruggeeft: hemelsbreed × 1,3, afgerond op 100 m (zelfde afronding als de app). */
 export function fakeRouteKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -44,7 +45,7 @@ async function mockMapServices(page: Page): Promise<MapServices> {
         display_name: `${a.house_number}, ${a.road}, ${a.city}, Nederland`,
         type: "house",
         class: "place",
-        address: { road: a.road, house_number: a.house_number, city: a.city },
+        address: { road: a.road, house_number: a.house_number, postcode: a.postcode.replace(" ", ""), city: a.city },
       })),
     });
   });

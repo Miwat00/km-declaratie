@@ -22,7 +22,7 @@ export default function AddTripPanel({ rate, userName, routes, home, office, onA
   const [name, setName] = useState(userName);
   const [showForm, setShowForm] = useState(routes.length === 0);
   const place = (l: Location) =>
-    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName.split(",")[0];
+    home && samePlace(l, home) ? "Thuis" : office && samePlace(l, office) ? "Kantoor" : l.shortName;
 
   function addRoute(r: FrequentRoute) {
     if (!name.trim()) return;
@@ -73,7 +73,7 @@ export default function AddTripPanel({ rate, userName, routes, home, office, onA
               className="flex items-center gap-3 w-full text-left rounded-lg border border-gray-300 bg-white px-3 py-2.5 hover:bg-blue-50 hover:border-blue-300 disabled:opacity-60 disabled:hover:bg-white"
             >
               <span className="flex-1 min-w-0">
-                <span className="block text-sm text-gray-900 truncate">{place(r.from)} ⇄ {place(r.to)}</span>
+                <span className="block text-sm text-gray-900 line-clamp-2">{place(r.from)} ⇄ {place(r.to)}</span>
                 <span className="block text-xs text-gray-600 truncate">{r.purpose}{r.client ? ` · ${r.client}` : ""}</span>
               </span>
               <span className="text-sm text-gray-900 tabular-nums flex-shrink-0">{formatKm(r.kmThere + r.kmBack)} km</span>

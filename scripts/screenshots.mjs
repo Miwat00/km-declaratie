@@ -9,10 +9,10 @@ const OUT = "docs/screenshots";
 mkdirSync(OUT, { recursive: true });
 
 const loc = (shortName, lat, lon, place) => ({ lat, lon, shortName, displayName: `${shortName}, ${place}, Nederland` });
-const HOME = loc("Dam 1, Amsterdam", 52.3731, 4.8926, "Noord-Holland");
-const OFFICE = loc("Jaarbeursplein 6, Utrecht", 52.0883, 5.1112, "Utrecht");
-const CLIENT_A = loc("Coolsingel 40, Rotterdam", 51.9227, 4.4792, "Zuid-Holland");
-const CLIENT_B = loc("Grote Markt 1, Haarlem", 52.3812, 4.6363, "Noord-Holland");
+const HOME = loc("Dam 1, 1012 JS Amsterdam", 52.3731, 4.8926, "Noord-Holland");
+const OFFICE = loc("Jaarbeursplein 6, 3521 AL Utrecht", 52.0883, 5.1112, "Utrecht");
+const CLIENT_A = loc("Coolsingel 40, 3011 AD Rotterdam", 51.9227, 4.4792, "Zuid-Holland");
+const CLIENT_B = loc("Grote Markt 1, 2011 RD Haarlem", 52.3812, 4.6363, "Noord-Holland");
 
 let id = 0;
 const trip = (date, a, b, km, purpose, client, billable, declaredAt) => ({

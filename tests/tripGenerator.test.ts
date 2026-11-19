@@ -39,6 +39,10 @@ describe("pickBestMatch", () => {
     const results = [loc("Coolsingel 40, Den Haag", 0, 0), loc("Coolsingel 40, Rotterdam", 0, 0)];
     expect(pickBestMatch("Coolsingel 40, 3011 AD Rotterdam", results)?.shortName).toBe("Coolsingel 40, Rotterdam");
   });
+  it("herkent de plaats ook als de resultaten een postcode hebben", () => {
+    const results = [loc("Coolsingel 40, 2500 AA Den Haag", 0, 0), loc("Coolsingel 40, 3011 AD Rotterdam", 0, 0)];
+    expect(pickBestMatch("Coolsingel 40, Rotterdam", results)?.shortName).toBe("Coolsingel 40, 3011 AD Rotterdam");
+  });
   it("geeft niets terug als geen enkel resultaat in de gevraagde plaats ligt", () => {
     expect(pickBestMatch("Stationsplein 1, Utrecht", [loc("Stationsplein 1, Amersfoort", 0, 0)])).toBeNull();
   });

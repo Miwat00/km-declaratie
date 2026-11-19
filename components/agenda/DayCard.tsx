@@ -37,7 +37,7 @@ type Props = {
 function Endpoint({ text, location, resetLabel, onReset }: { text: string; location: Location; resetLabel: string; onReset: () => void }) {
   return (
     <p className="flex items-center gap-1 text-xs text-gray-700 px-0.5">
-      <span className="truncate">{text} <span className="font-medium">{location.shortName.split(",")[0]}</span></span>
+      <span className="min-w-0">{text} <span className="font-medium">{location.shortName}</span></span>
       <button type="button" onClick={onReset} aria-label={resetLabel} title={resetLabel} className={`ml-auto flex-shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 ${focus}`}>
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -81,7 +81,7 @@ function Segmented<T extends string>({ label, options, value, onPick }: {
 
 function subText(p: PlannedEvent): string {
   const st = p.status;
-  if (st.kind === "linked") return st.location.shortName.split(",")[0];
+  if (st.kind === "linked") return st.location.shortName;
   if (st.kind === "todo") return "Waar was dit?";
   return { online: "Online", ov: "OV", thuis: "Thuis", "hele dag": "Hele dag" }[st.reason as string] ?? "Geen rit";
 }
@@ -153,7 +153,7 @@ export default function DayCard({ date, planned, legs, manualStops, selection, o
         <span className="sr-only">Rit </span>
         <span className={`tabular-nums ${leg.disabled ? "line-through" : ""}`}>{km}</span>
         <span className="truncate">{note}</span>
-        <span className="sr-only"> {leg.from.shortName.split(",")[0]} → {leg.to.shortName.split(",")[0]}{extraLabel ?? ""}</span>
+        <span className="sr-only"> {leg.from.shortName} → {leg.to.shortName}{extraLabel ?? ""}</span>
       </button>
     );
   }
@@ -176,7 +176,7 @@ export default function DayCard({ date, planned, legs, manualStops, selection, o
         className={`w-full text-left rounded-lg px-2 py-1 text-xs ${tone} ${isSel(sel) ? "ring-2 ring-blue-500" : ""} ${focus}`}
       >
         <span className="block truncate font-medium">{event.startTime ? `${fromMin(eventSpan(event).start)} ` : ""}{event.title}</span>{" "}
-        <span className="block truncate">{subText(p)}</span>
+        <span className="block line-clamp-2">{subText(p)}</span>
       </button>
     );
   }
@@ -265,7 +265,7 @@ export default function DayCard({ date, planned, legs, manualStops, selection, o
                 >
                   <span className="sr-only">Tussenstop </span>
                   <span className="block truncate font-medium">{b.stop.time} {b.stop.purpose}</span>{" "}
-                  <span className="block truncate">{b.stop.location.shortName.split(",")[0]}</span>
+                  <span className="block line-clamp-2">{b.stop.location.shortName}</span>
                 </button>
               </div>
             );

@@ -42,6 +42,8 @@ export function isOnlineLocation(locationStr: string): boolean {
 }
 
 const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+/** Plaatsnaam zonder postcode: "2514 bx den haag" → "den haag" */
+const cityOnly = (s: string) => s.replace(/^\d{4}\s*[a-z]{2}\s+/, "").trim();
 
 /**
  * Kies het beste resultaat voor een adres als "Straat 1, Plaats".
@@ -50,14 +52,14 @@ const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-�
  */
 export function pickBestMatch(query: string, results: Location[]): Location | null {
   const parts = query.split(",").map((p) => normalize(p.trim())).filter(Boolean);
-  const city = parts.length > 1 ? parts[parts.length - 1] : null;
+  const city = parts.length > 1 ? cityOnly(parts[parts.length - 1]) : null;
   const streetWords = (parts[0] ?? "").split(/\s+/).filter((w) => /[a-z]{2,}/.test(w));
 
   let best: Location | null = null;
   let bestScore = -1;
   for (const r of results) {
     const short = normalize(r.shortName);
-    const resultCity = short.includes(",") ? short.split(",").pop()!.trim() : "";
+    const resultCity = short.includes(",") ? cityOnly(short.split(",").pop()!.trim()) : "";
     let score = 0;
     if (city && resultCity && city.includes(resultCity)) score += 2;
     if (streetWords.every((w) => short.includes(w))) score += 1;
